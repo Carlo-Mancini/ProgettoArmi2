@@ -15,9 +15,32 @@ class ArmaDialog(QDialog):
         detentore_id è l'ID del detentore a cui l'arma appartiene.
         """
         super().__init__()
+
+        # Se arma_data esiste, verifichiamo se contiene il campo DataAcquisto
+        if arma_data and 'DataAcquisto' not in arma_data:
+            # Recuperiamo direttamente il valore dal database
+            try:
+                conn = sqlite3.connect("gestione_armi.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT DataAcquisto FROM armi WHERE ID_ArmaDetenuta = ?",
+                               (arma_data['ID_ArmaDetenuta'],))
+                data_acquisto = cursor.fetchone()
+                if data_acquisto:
+                    # Aggiungiamo il campo al dizionario
+                    arma_data['DataAcquisto'] = data_acquisto[0] if data_acquisto[0] is not None else ''
+                else:
+                    arma_data['DataAcquisto'] = ''
+            except Exception as e:
+                print(f"Errore nel recupero della data di acquisto: {e}")
+                arma_data['DataAcquisto'] = ''
+            finally:
+                if conn:
+                    conn.close()
+
         self.arma_data = arma_data
         self.detentore_id = detentore_id
 
+        # Il resto del codice rimane invariato...
         # Configurazione iniziale della finestra
         self.setWindowTitle("Gestione Arma")
         self.setMinimumWidth(850)
@@ -556,6 +579,10 @@ class ArmaDialog(QDialog):
 
     def populate_fields(self, data):
         """Popola i campi con i dati esistenti"""
+        # DEBUG: Stampiamo i dati ricevuti per verificare il campo DataAcquisto
+        print("DEBUG - Dati arma in populate_fields:")
+        print(f"DataAcquisto nel dataset: {data.get('DataAcquisto', 'NON PRESENTE')}")
+
         # Per i campi con combobox
         self.set_combobox_value(self.tipoArmaEdit, data.get('TipoArma', ''))
         self.set_combobox_value(self.marcaArmaEdit, data.get('MarcaArma', ''))
@@ -592,7 +619,14 @@ class ArmaDialog(QDialog):
         self.indirizzoResidenzaCedenteEdit.setText(data.get('IndirizzoResidenzaCedente', ''))
         self.civicoResidenzaCedenteEdit.setText(data.get('CivicoResidenzaCedente', ''))
         self.telefonoCedenteEdit.setText(data.get('TelefonoCedente', ''))
-        self.dataAcquistoEdit.setText(data.get('DataAcquisto', ''))
+
+        # Prova a impostare esplicitamente il campo DataAcquisto
+        data_acquisto = data.get('DataAcquisto', '')
+        print(f"DEBUG - Impostazione dataAcquistoEdit: {data_acquisto}")
+        self.dataAcquistoEdit.setText(data_acquisto)
+
+        # DEBUG: Verifichiamo cosa contiene il campo dopo averlo impostato
+        print(f"DEBUG - Valore attuale di dataAcquistoEdit: {self.dataAcquistoEdit.text()}")
 
         # Carica lo stato di produzione se la marca esiste
         marca = data.get('MarcaArma', '')
