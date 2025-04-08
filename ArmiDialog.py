@@ -2,7 +2,7 @@ import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
     QGroupBox, QPushButton, QHBoxLayout, QGridLayout, QScrollArea,
-    QLabel, QSizePolicy
+    QLabel, QSizePolicy, QComboBox, QMessageBox, QInputDialog
 )
 from Utility import convert_all_lineedits_to_uppercase
 from TransferimentoDialog import TransferimentoDialog
@@ -57,9 +57,17 @@ class ArmaDialog(QDialog):
         """Crea la tab con i dettagli dell'arma"""
         self.tab_arma = QWidget()
 
-        # Creazione dei campi di testo
-        self.tipoArmaEdit = QLineEdit()
-        self.marcaArmaEdit = QLineEdit()
+        # Creazione dei campi di testo e combobox
+        # Tipo Arma - ComboBox
+        self.tipoArmaEdit = QComboBox()
+        self.tipoArmaEdit.setEditable(True)
+        self.initialize_tipo_arma_combo()
+
+        # Marca Arma - ComboBox
+        self.marcaArmaEdit = QComboBox()
+        self.marcaArmaEdit.setEditable(True)
+        self.load_marche_from_db()
+
         self.modelloArmaEdit = QLineEdit()
         self.tipologiaArmaEdit = QLineEdit()
         self.matricolaEdit = QLineEdit()
@@ -67,11 +75,29 @@ class ArmaDialog(QDialog):
         self.matricolaCannaEdit = QLineEdit()
         self.lunghezzaCannaEdit = QLineEdit()
         self.numeroCanneEdit = QLineEdit()
-        self.armaLungaCortaEdit = QLineEdit()
+
+        # Arma Lunga/Corta - ComboBox
+        self.armaLungaCortaEdit = QComboBox()
+        self.armaLungaCortaEdit.setEditable(True)
+        self.initialize_arma_lunga_corta_combo()
+
         self.tipoCannaEdit = QLineEdit()
-        self.categoriaArmaEdit = QLineEdit()
-        self.funzionamentoArmaEdit = QLineEdit()
-        self.caricamentoArmaEdit = QLineEdit()
+
+        # Categoria Arma - ComboBox
+        self.categoriaArmaEdit = QComboBox()
+        self.categoriaArmaEdit.setEditable(True)
+        self.initialize_categoria_arma_combo()
+
+        # Funzionamento Arma - ComboBox
+        self.funzionamentoArmaEdit = QComboBox()
+        self.funzionamentoArmaEdit.setEditable(True)
+        self.initialize_funzionamento_arma_combo()
+
+        # Caricamento Arma - ComboBox
+        self.caricamentoArmaEdit = QComboBox()
+        self.caricamentoArmaEdit.setEditable(True)
+        self.initialize_caricamento_arma_combo()
+
         self.punzoniArmaEdit = QLineEdit()
         self.statoProduzioneArmaEdit = QLineEdit()
         self.exOrdDemEdit = QLineEdit()
@@ -113,6 +139,100 @@ class ArmaDialog(QDialog):
         main_layout = QVBoxLayout()
         main_layout.addWidget(scroll)
         self.tab_arma.setLayout(main_layout)
+
+    def initialize_tipo_arma_combo(self):
+        """Inizializza la combobox per il tipo di arma"""
+        tipi_arma = [
+            "PISTOLA",
+            "FUCILE",
+            "REVOLVER",
+            "CARABINA",
+            "FUCILE A POMPA",
+            "MITRAGLIATRICE",
+            "FUCILE D'ASSALTO",
+            "FUCILE DI PRECISIONE",
+            "ARMA BIANCA",
+            "SHOTGUN",
+            "PISTOLA MITRAGLIATRICE",
+            "FUCILE A CANNA LISCIA"
+        ]
+        for tipo in tipi_arma:
+            self.tipoArmaEdit.addItem(tipo)
+
+    def initialize_arma_lunga_corta_combo(self):
+        """Inizializza la combobox per arma lunga/corta"""
+        tipi = ["ARMA LUNGA", "ARMA CORTA"]
+        for tipo in tipi:
+            self.armaLungaCortaEdit.addItem(tipo)
+
+    def initialize_categoria_arma_combo(self):
+        """Inizializza la combobox per la categoria dell'arma"""
+        categorie = [
+            "ARMA DA CACCIA",
+            "USO SPORTIVO",
+            "ARMA BIANCA",
+            "ARMA DA COLLEZIONE",
+            "DIFESA PERSONALE",
+            "USO MILITARE",
+            "USO CIVILE",
+            "ARMA COMUNE",
+            "ARMA SPORTIVA",
+            "ARMA ANTICA"
+        ]
+        for categoria in categorie:
+            self.categoriaArmaEdit.addItem(categoria)
+
+    def initialize_funzionamento_arma_combo(self):
+        """Inizializza la combobox per il funzionamento dell'arma"""
+        funzionamenti = [
+            "SEMIAUTOMATICO",
+            "AUTOMATICO",
+            "CARICAMENTO SINGOLO",
+            "A ROTAZIONE",
+            "A LEVA",
+            "A POMPA",
+            "A OTTURATORE GIREVOLE-SCORREVOLE",
+            "A MASSA BATTENTE",
+            "A CORTO RINCULO",
+            "A CANNA BASCULANTE",
+            "A RIPETIZIONE MANUALE"
+        ]
+        for funzionamento in funzionamenti:
+            self.funzionamentoArmaEdit.addItem(funzionamento)
+
+    def initialize_caricamento_arma_combo(self):
+        """Inizializza la combobox per il caricamento dell'arma"""
+        caricamenti = ["AVANCARICA", "RETROCARICA"]
+        for caricamento in caricamenti:
+            self.caricamentoArmaEdit.addItem(caricamento)
+
+    def load_marche_from_db(self):
+        """Carica le marche dal database nella combobox"""
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+
+            # Assicuriamoci che la tabella esista
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS marche_armi (
+                    ID_MarcaArma INTEGER PRIMARY KEY AUTOINCREMENT,
+                    NomeMarca TEXT NOT NULL UNIQUE,
+                    StatoProduzione TEXT
+                )
+            """)
+            conn.commit()
+
+            cursor.execute("SELECT NomeMarca FROM marche_armi ORDER BY NomeMarca")
+            marche = cursor.fetchall()
+
+            self.marcaArmaEdit.clear()
+            for marca in marche:
+                self.marcaArmaEdit.addItem(marca[0])
+
+        except Exception as e:
+            print("Errore durante il caricamento delle marche:", e)
+        finally:
+            conn.close()
 
     def create_arma_identification_group(self):
         """Crea il gruppo per i dati identificativi dell'arma"""
@@ -305,10 +425,143 @@ class ArmaDialog(QDialog):
         self.deleteButton.clicked.connect(self.delete_arma)
         self.transferButton.clicked.connect(self.transfer_arma)
 
+        # Collegare il segnale della combobox marca
+        self.marcaArmaEdit.currentIndexChanged.connect(self.on_marca_selected)
+        # Collega il segnale quando l'utente finisce di modificare il testo
+        self.marcaArmaEdit.editTextChanged.connect(self.on_marca_text_changed)
+
+        # Assicurarsi che tutte le combobox convertano il testo in maiuscolo
+        for combo in [self.tipoArmaEdit, self.marcaArmaEdit, self.armaLungaCortaEdit,
+                      self.categoriaArmaEdit, self.funzionamentoArmaEdit, self.caricamentoArmaEdit]:
+            combo.setEditable(True)
+            combo.editTextChanged.connect(self.convert_combobox_text_to_uppercase)
+
+    def convert_combobox_text_to_uppercase(self):
+        """Converte il testo della combobox in maiuscolo"""
+        sender = self.sender()
+        if isinstance(sender, QComboBox):
+            current_text = sender.currentText()
+            upper_text = current_text.upper()
+            if current_text != upper_text:
+                sender.setEditText(upper_text)
+
+    def on_marca_selected(self, index):
+        """Gestisce la selezione di una marca dalla combobox"""
+        if index >= 0:
+            marca_selezionata = self.marcaArmaEdit.currentText()
+            self.load_stato_produzione(marca_selezionata)
+
+    def on_marca_text_changed(self, text):
+        """Gestisce il cambio di testo nella combobox"""
+        # Convertire il testo in maiuscolo
+        upper_text = text.upper()
+        if upper_text != text:
+            self.marcaArmaEdit.setEditText(upper_text)
+            return
+
+        # Verifica se il testo è già presente nel database
+        conn = None
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT StatoProduzione FROM marche_armi WHERE NomeMarca = ?", (upper_text,))
+            result = cursor.fetchone()
+
+            if result:
+                # La marca esiste, carica lo stato produzione
+                self.statoProduzioneArmaEdit.setText(result[0] if result[0] else "")
+        except Exception as e:
+            print("Errore nella verifica della marca:", e)
+        finally:
+            if conn:
+                conn.close()
+
+    def load_stato_produzione(self, marca):
+        """Carica lo stato di produzione associato alla marca selezionata"""
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT StatoProduzione FROM marche_armi WHERE NomeMarca = ?", (marca,))
+            result = cursor.fetchone()
+
+            if result and result[0]:
+                self.statoProduzioneArmaEdit.setText(result[0])
+        except Exception as e:
+            print("Errore nel caricamento dello stato di produzione:", e)
+        finally:
+            conn.close()
+
+    def check_and_add_new_marca(self):
+        """Verifica se la marca inserita esiste nel db e, se non esiste, chiede di aggiungerla"""
+        marca_text = self.marcaArmaEdit.currentText().upper()
+
+        if not marca_text:
+            return
+
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM marche_armi WHERE NomeMarca = ?", (marca_text,))
+            count = cursor.fetchone()[0]
+
+            if count == 0:
+                # La marca non esiste, chiedi se aggiungerla
+                reply = QMessageBox.question(
+                    self,
+                    'Nuova Marca',
+                    f'La marca "{marca_text}" non esiste nel database. Vuoi aggiungerla?',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+
+                if reply == QMessageBox.Yes:
+                    # Chiedi lo stato di produzione
+                    stato_produzione, ok = QInputDialog.getText(
+                        self,
+                        'Stato Produzione',
+                        'Inserisci lo stato di produzione per questa marca:',
+                        text=self.statoProduzioneArmaEdit.text().upper()
+                    )
+
+                    if ok:
+                        stato_produzione = stato_produzione.upper()
+                        # Aggiungi la nuova marca al database
+                        cursor.execute(
+                            "INSERT INTO marche_armi (NomeMarca, StatoProduzione) VALUES (?, ?)",
+                            (marca_text, stato_produzione)
+                        )
+                        conn.commit()
+
+                        # Aggiorna la combobox
+                        self.load_marche_from_db()
+                        # Imposta il valore corrente
+                        index = self.marcaArmaEdit.findText(marca_text)
+                        if index >= 0:
+                            self.marcaArmaEdit.setCurrentIndex(index)
+                        else:
+                            self.marcaArmaEdit.setEditText(marca_text)
+
+                        # Aggiorna lo stato di produzione
+                        self.statoProduzioneArmaEdit.setText(stato_produzione)
+                else:
+                    # L'utente non vuole aggiungerla, lascia il testo ma non salvare nel database
+                    pass
+        except Exception as e:
+            print("Errore durante il controllo/aggiunta della marca:", e)
+        finally:
+            conn.close()
+
     def populate_fields(self, data):
         """Popola i campi con i dati esistenti"""
-        self.tipoArmaEdit.setText(data.get('TipoArma', ''))
-        self.marcaArmaEdit.setText(data.get('MarcaArma', ''))
+        # Per i campi con combobox
+        self.set_combobox_value(self.tipoArmaEdit, data.get('TipoArma', ''))
+        self.set_combobox_value(self.marcaArmaEdit, data.get('MarcaArma', ''))
+        self.set_combobox_value(self.armaLungaCortaEdit, data.get('ArmaLungaCorta', ''))
+        self.set_combobox_value(self.categoriaArmaEdit, data.get('CategoriaArma', ''))
+        self.set_combobox_value(self.funzionamentoArmaEdit, data.get('FunzionamentoArma', ''))
+        self.set_combobox_value(self.caricamentoArmaEdit, data.get('CaricamentoArma', ''))
+
+        # Per i campi con QLineEdit
         self.modelloArmaEdit.setText(data.get('ModelloArma', ''))
         self.tipologiaArmaEdit.setText(data.get('TipologiaArma', ''))
         self.matricolaEdit.setText(data.get('Matricola', ''))
@@ -316,11 +569,7 @@ class ArmaDialog(QDialog):
         self.matricolaCannaEdit.setText(data.get('MatricolaCanna', ''))
         self.lunghezzaCannaEdit.setText(data.get('LunghezzaCanna', ''))
         self.numeroCanneEdit.setText(data.get('NumeroCanne', ''))
-        self.armaLungaCortaEdit.setText(data.get('ArmaLungaCorta', ''))
         self.tipoCannaEdit.setText(data.get('TipoCanna', ''))
-        self.categoriaArmaEdit.setText(data.get('CategoriaArma', ''))
-        self.funzionamentoArmaEdit.setText(data.get('FunzionamentoArma', ''))
-        self.caricamentoArmaEdit.setText(data.get('CaricamentoArma', ''))
         self.punzoniArmaEdit.setText(data.get('PunzoniArma', ''))
         self.statoProduzioneArmaEdit.setText(data.get('StatoProduzioneArma', ''))
         self.exOrdDemEdit.setText(data.get('ExOrdDem', ''))
@@ -341,9 +590,30 @@ class ArmaDialog(QDialog):
         self.civicoResidenzaCedenteEdit.setText(data.get('CivicoResidenzaCedente', ''))
         self.telefonoCedenteEdit.setText(data.get('TelefonoCedente', ''))
 
+        # Carica lo stato di produzione se la marca esiste
+        marca = data.get('MarcaArma', '')
+        if marca:
+            self.load_stato_produzione(marca)
+
+    def set_combobox_value(self, combobox, value):
+        """Imposta il valore di una combobox, aggiungendolo se non esiste"""
+        if not value:
+            return
+
+        value = value.upper()
+        index = combobox.findText(value)
+        if index >= 0:
+            combobox.setCurrentIndex(index)
+        else:
+            combobox.addItem(value)
+            combobox.setCurrentText(value)
+
     def save_arma(self):
         """Salva i dati dell'arma nel database"""
         try:
+            # Verifica se la marca è nuova e chiedi di aggiungerla
+            self.check_and_add_new_marca()
+
             # Verifica che almeno l'ID del detentore sia valorizzato per un nuovo inserimento
             if self.arma_data is None and self.detentore_id is None:
                 raise ValueError("ID_Detentore non valorizzato. Impossibile salvare l'arma.")
@@ -352,8 +622,8 @@ class ArmaDialog(QDialog):
             cursor = conn.cursor()
 
             # Raccogli i dati
-            tipoArma = self.tipoArmaEdit.text()
-            marcaArma = self.marcaArmaEdit.text()
+            tipoArma = self.tipoArmaEdit.currentText()
+            marcaArma = self.marcaArmaEdit.currentText()
             modelloArma = self.modelloArmaEdit.text()
             tipologiaArma = self.tipologiaArmaEdit.text()
             matricola = self.matricolaEdit.text()
@@ -361,11 +631,11 @@ class ArmaDialog(QDialog):
             matricolaCanna = self.matricolaCannaEdit.text()
             lunghezzaCanna = self.lunghezzaCannaEdit.text()
             numeroCanne = self.numeroCanneEdit.text()
-            armaLungaCorta = self.armaLungaCortaEdit.text()
+            armaLungaCorta = self.armaLungaCortaEdit.currentText()
             tipoCanna = self.tipoCannaEdit.text()
-            categoriaArma = self.categoriaArmaEdit.text()
-            funzionamentoArma = self.funzionamentoArmaEdit.text()
-            caricamentoArma = self.caricamentoArmaEdit.text()
+            categoriaArma = self.categoriaArmaEdit.currentText()
+            funzionamentoArma = self.funzionamentoArmaEdit.currentText()
+            caricamentoArma = self.caricamentoArmaEdit.currentText()
             punzoniArma = self.punzoniArmaEdit.text()
             statoProduzioneArma = self.statoProduzioneArmaEdit.text()
             exOrdDem = self.exOrdDemEdit.text()
