@@ -1,7 +1,8 @@
 import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
-    QGroupBox, QPushButton, QHBoxLayout
+    QGroupBox, QPushButton, QHBoxLayout, QGridLayout, QScrollArea,
+    QLabel, QSizePolicy
 )
 from Utility import convert_all_lineedits_to_uppercase
 from TransferimentoDialog import TransferimentoDialog
@@ -19,7 +20,8 @@ class ArmaDialog(QDialog):
 
         # Configurazione iniziale della finestra
         self.setWindowTitle("Gestione Arma")
-        self.setMinimumWidth(800)
+        self.setMinimumWidth(850)
+        self.setMinimumHeight(600)
 
         # Creazione dei widget principali
         self._create_widgets()
@@ -43,13 +45,19 @@ class ArmaDialog(QDialog):
 
         # Pulsanti
         self.saveButton = QPushButton("Salva Arma")
+        self.saveButton.setMinimumWidth(120)
         self.modifyButton = QPushButton("Modifica Arma")
+        self.modifyButton.setMinimumWidth(120)
         self.deleteButton = QPushButton("Cancella Arma")
+        self.deleteButton.setMinimumWidth(120)
         self.transferButton = QPushButton("Trasferisci Arma")
+        self.transferButton.setMinimumWidth(120)
 
     def _create_arma_tab(self):
         """Crea la tab con i dettagli dell'arma"""
         self.tab_arma = QWidget()
+
+        # Creazione dei campi di testo
         self.tipoArmaEdit = QLineEdit()
         self.marcaArmaEdit = QLineEdit()
         self.modelloArmaEdit = QLineEdit()
@@ -73,40 +81,136 @@ class ArmaDialog(QDialog):
         self.tipoCedenteEdit = QLineEdit()
         self.noteArmaEdit = QLineEdit()
 
-        form_arma = QFormLayout()
-        form_arma.addRow("Tipo Arma:", self.tipoArmaEdit)
-        form_arma.addRow("Marca Arma:", self.marcaArmaEdit)
-        form_arma.addRow("Modello Arma:", self.modelloArmaEdit)
-        form_arma.addRow("Tipologia Arma:", self.tipologiaArmaEdit)
-        form_arma.addRow("Matricola:", self.matricolaEdit)
-        form_arma.addRow("Calibro Arma:", self.calibroArmaEdit)
-        form_arma.addRow("Matricola Canna:", self.matricolaCannaEdit)
-        form_arma.addRow("Lunghezza Canna:", self.lunghezzaCannaEdit)
-        form_arma.addRow("Numero Canne:", self.numeroCanneEdit)
-        form_arma.addRow("Arma Lunga/Corta:", self.armaLungaCortaEdit)
-        form_arma.addRow("Tipo Canna:", self.tipoCannaEdit)
-        form_arma.addRow("Categoria Arma:", self.categoriaArmaEdit)
-        form_arma.addRow("Funzionamento Arma:", self.funzionamentoArmaEdit)
-        form_arma.addRow("Caricamento Arma:", self.caricamentoArmaEdit)
-        form_arma.addRow("Punzoni Arma:", self.punzoniArmaEdit)
-        form_arma.addRow("Stato Produzione Arma:", self.statoProduzioneArmaEdit)
-        form_arma.addRow("ExOrdDem:", self.exOrdDemEdit)
-        form_arma.addRow("Tipo Munizioni:", self.tipoMunizioniEdit)
-        form_arma.addRow("Quantita Munizioni:", self.quantitaMunizioniEdit)
-        form_arma.addRow("Tipo Bossolo:", self.tipoBossoloEdit)
-        form_arma.addRow("Tipo Cedente:", self.tipoCedenteEdit)
-        form_arma.addRow("Note Arma:", self.noteArmaEdit)
+        # Creazione dei gruppi di campi
+        self.create_arma_identification_group()
+        self.create_arma_technical_group()
+        self.create_arma_classification_group()
+        self.create_arma_munition_group()
 
-        group_arma = QGroupBox("Dettagli Arma")
-        group_arma.setLayout(form_arma)
+        # Layout principale per la tab arma con scrolling
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
 
-        arma_layout = QVBoxLayout()
-        arma_layout.addWidget(group_arma)
-        self.tab_arma.setLayout(arma_layout)
+        # Aggiunta dei gruppi al layout
+        scroll_layout.addWidget(self.group_identification)
+        scroll_layout.addWidget(self.group_technical)
+        scroll_layout.addWidget(self.group_classification)
+        scroll_layout.addWidget(self.group_munition)
+
+        # Note aggiuntive
+        group_notes = QGroupBox("Note")
+        notes_layout = QFormLayout()
+        notes_layout.addRow("Note Arma:", self.noteArmaEdit)
+        group_notes.setLayout(notes_layout)
+        scroll_layout.addWidget(group_notes)
+
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_content)
+
+        # Layout principale della tab
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(scroll)
+        self.tab_arma.setLayout(main_layout)
+
+    def create_arma_identification_group(self):
+        """Crea il gruppo per i dati identificativi dell'arma"""
+        self.group_identification = QGroupBox("Dati Identificativi")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Tipo Arma:"), 0, 0)
+        grid.addWidget(self.tipoArmaEdit, 0, 1)
+        grid.addWidget(QLabel("Marca:"), 0, 2)
+        grid.addWidget(self.marcaArmaEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Modello:"), 1, 0)
+        grid.addWidget(self.modelloArmaEdit, 1, 1)
+        grid.addWidget(QLabel("Tipologia:"), 1, 2)
+        grid.addWidget(self.tipologiaArmaEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Matricola:"), 2, 0)
+        grid.addWidget(self.matricolaEdit, 2, 1)
+        grid.addWidget(QLabel("Calibro:"), 2, 2)
+        grid.addWidget(self.calibroArmaEdit, 2, 3)
+
+        self.group_identification.setLayout(grid)
+
+    def create_arma_technical_group(self):
+        """Crea il gruppo per i dettagli tecnici dell'arma"""
+        self.group_technical = QGroupBox("Dati Tecnici")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Matricola Canna:"), 0, 0)
+        grid.addWidget(self.matricolaCannaEdit, 0, 1)
+        grid.addWidget(QLabel("Lunghezza Canna:"), 0, 2)
+        grid.addWidget(self.lunghezzaCannaEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Numero Canne:"), 1, 0)
+        grid.addWidget(self.numeroCanneEdit, 1, 1)
+        grid.addWidget(QLabel("Tipo Canna:"), 1, 2)
+        grid.addWidget(self.tipoCannaEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Arma Lunga/Corta:"), 2, 0)
+        grid.addWidget(self.armaLungaCortaEdit, 2, 1)
+        grid.addWidget(QLabel("Punzoni:"), 2, 2)
+        grid.addWidget(self.punzoniArmaEdit, 2, 3)
+
+        self.group_technical.setLayout(grid)
+
+    def create_arma_classification_group(self):
+        """Crea il gruppo per la classificazione dell'arma"""
+        self.group_classification = QGroupBox("Classificazione")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Categoria:"), 0, 0)
+        grid.addWidget(self.categoriaArmaEdit, 0, 1)
+        grid.addWidget(QLabel("Funzionamento:"), 0, 2)
+        grid.addWidget(self.funzionamentoArmaEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Caricamento:"), 1, 0)
+        grid.addWidget(self.caricamentoArmaEdit, 1, 1)
+        grid.addWidget(QLabel("Stato Produzione:"), 1, 2)
+        grid.addWidget(self.statoProduzioneArmaEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("ExOrdDem:"), 2, 0)
+        grid.addWidget(self.exOrdDemEdit, 2, 1)
+        grid.addWidget(QLabel("Tipo Cedente:"), 2, 2)
+        grid.addWidget(self.tipoCedenteEdit, 2, 3)
+
+        self.group_classification.setLayout(grid)
+
+    def create_arma_munition_group(self):
+        """Crea il gruppo per i dati sulle munizioni"""
+        self.group_munition = QGroupBox("Munizioni")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Tipo Munizioni:"), 0, 0)
+        grid.addWidget(self.tipoMunizioniEdit, 0, 1)
+        grid.addWidget(QLabel("Quantità:"), 0, 2)
+        grid.addWidget(self.quantitaMunizioniEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Tipo Bossolo:"), 1, 0)
+        grid.addWidget(self.tipoBossoloEdit, 1, 1)
+
+        self.group_munition.setLayout(grid)
 
     def _create_cedente_tab(self):
         """Crea la tab con i dati del cedente"""
         self.tab_cedente = QWidget()
+
+        # Creazione dei campi di testo
         self.cognomeCedenteEdit = QLineEdit()
         self.nomeCedenteEdit = QLineEdit()
         self.dataNascitaCedenteEdit = QLineEdit()
@@ -119,25 +223,57 @@ class ArmaDialog(QDialog):
         self.civicoResidenzaCedenteEdit = QLineEdit()
         self.telefonoCedenteEdit = QLineEdit()
 
-        form_cedente = QFormLayout()
-        form_cedente.addRow("Cognome Cedente:", self.cognomeCedenteEdit)
-        form_cedente.addRow("Nome Cedente:", self.nomeCedenteEdit)
-        form_cedente.addRow("Data Nascita Cedente:", self.dataNascitaCedenteEdit)
-        form_cedente.addRow("Luogo Nascita Cedente:", self.luogoNascitaCedenteEdit)
-        form_cedente.addRow("Sigla Provincia Residenza Cedente:", self.siglaProvinciaResidenzaCedenteEdit)
-        form_cedente.addRow("Comune Residenza Cedente:", self.comuneResidenzaCedenteEdit)
-        form_cedente.addRow("Sigla Provincia Nascita Cedente:", self.siglaProvinciaNascitaCedenteEdit)
-        form_cedente.addRow("Tipo Via Residenza Cedente:", self.tipoViaResidenzaCedenteEdit)
-        form_cedente.addRow("Indirizzo Residenza Cedente:", self.indirizzoResidenzaCedenteEdit)
-        form_cedente.addRow("Civico Residenza Cedente:", self.civicoResidenzaCedenteEdit)
-        form_cedente.addRow("Telefono Cedente:", self.telefonoCedenteEdit)
+        # Creazione dei gruppi
+        group_anagrafica = QGroupBox("Dati Anagrafici")
+        grid_anagrafica = QGridLayout()
 
-        group_cedente = QGroupBox("Dati Cedente")
-        group_cedente.setLayout(form_cedente)
+        # Riga 1
+        grid_anagrafica.addWidget(QLabel("Cognome:"), 0, 0)
+        grid_anagrafica.addWidget(self.cognomeCedenteEdit, 0, 1)
+        grid_anagrafica.addWidget(QLabel("Nome:"), 0, 2)
+        grid_anagrafica.addWidget(self.nomeCedenteEdit, 0, 3)
 
-        cedente_layout = QVBoxLayout()
-        cedente_layout.addWidget(group_cedente)
-        self.tab_cedente.setLayout(cedente_layout)
+        # Riga 2
+        grid_anagrafica.addWidget(QLabel("Data di Nascita:"), 1, 0)
+        grid_anagrafica.addWidget(self.dataNascitaCedenteEdit, 1, 1)
+        grid_anagrafica.addWidget(QLabel("Luogo di Nascita:"), 1, 2)
+        grid_anagrafica.addWidget(self.luogoNascitaCedenteEdit, 1, 3)
+
+        # Riga 3
+        grid_anagrafica.addWidget(QLabel("Provincia di Nascita:"), 2, 0)
+        grid_anagrafica.addWidget(self.siglaProvinciaNascitaCedenteEdit, 2, 1)
+        grid_anagrafica.addWidget(QLabel("Telefono:"), 2, 2)
+        grid_anagrafica.addWidget(self.telefonoCedenteEdit, 2, 3)
+
+        group_anagrafica.setLayout(grid_anagrafica)
+
+        group_residenza = QGroupBox("Dati Residenza")
+        grid_residenza = QGridLayout()
+
+        # Riga 1
+        grid_residenza.addWidget(QLabel("Comune:"), 0, 0)
+        grid_residenza.addWidget(self.comuneResidenzaCedenteEdit, 0, 1)
+        grid_residenza.addWidget(QLabel("Provincia:"), 0, 2)
+        grid_residenza.addWidget(self.siglaProvinciaResidenzaCedenteEdit, 0, 3)
+
+        # Riga 2
+        grid_residenza.addWidget(QLabel("Tipo Via:"), 1, 0)
+        grid_residenza.addWidget(self.tipoViaResidenzaCedenteEdit, 1, 1)
+        grid_residenza.addWidget(QLabel("Indirizzo:"), 1, 2)
+        grid_residenza.addWidget(self.indirizzoResidenzaCedenteEdit, 1, 3)
+
+        # Riga 3
+        grid_residenza.addWidget(QLabel("Civico:"), 2, 0)
+        grid_residenza.addWidget(self.civicoResidenzaCedenteEdit, 2, 1)
+
+        group_residenza.setLayout(grid_residenza)
+
+        # Layout principale
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(group_anagrafica)
+        main_layout.addWidget(group_residenza)
+        main_layout.addStretch()
+        self.tab_cedente.setLayout(main_layout)
 
     def _setup_layout(self):
         """Configura il layout principale"""
@@ -157,6 +293,7 @@ class ArmaDialog(QDialog):
 
         # Aggiungi tutto al layout principale
         main_layout.addWidget(self.tab_widget)
+        main_layout.addSpacing(10)  # Spazio tra tabs e pulsanti
         main_layout.addLayout(btn_layout)
 
         self.setLayout(main_layout)
@@ -249,8 +386,6 @@ class ArmaDialog(QDialog):
             civicoResidenzaCedente = self.civicoResidenzaCedenteEdit.text()
             telefonoCedente = self.telefonoCedenteEdit.text()
 
-            print("ID_ArmaDetenuta:", self.arma_data.get('ID_ArmaDetenuta') if self.arma_data else None)
-
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
                 # UPDATE per la modifica
                 cursor.execute("""
@@ -317,7 +452,6 @@ class ArmaDialog(QDialog):
     def transfer_arma(self):
         """Apre la finestra di dialogo per il trasferimento dell'arma"""
         try:
-            from TransferimentoDialog import TransferimentoDialog
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
                 dialog = TransferimentoDialog(
                     arma_id=self.arma_data['ID_ArmaDetenuta'],
