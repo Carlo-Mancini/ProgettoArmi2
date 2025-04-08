@@ -1,468 +1,484 @@
 import sqlite3
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QPushButton, QHBoxLayout, QMessageBox, QDateEdit, QGroupBox
+    QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
+    QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QHeaderView,
+    QMessageBox, QFormLayout, QSplitter, QFrame, QGridLayout, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtGui import QFont, QIcon
 from Utility import convert_all_lineedits_to_uppercase
 
 
 class TransferimentoDialog(QDialog):
-    """Dialog per gestire il trasferimento di un'arma tra detentori"""
-
-    def __init__(self, arma_id, cedente_id, current_detentore=None, parent=None):
+    def __init__(self, arma_id=None, cedente_id=None, current_detentore=None, parent=None):
         super().__init__(parent)
         self.arma_id = arma_id
         self.cedente_id = cedente_id
         self.current_detentore = current_detentore
-        self.destinatario_id = None
-
-        self.setup_ui()
-        self.setup_connections()
-        self.load_initial_data()
-        convert_all_lineedits_to_uppercase(self)  # Applica uppercase a tutti i campi
+        self.selected_detentore_id = None
+        self.selected_detentore_data = None
 
         self.setWindowTitle("Trasferimento Arma")
-        self.setMinimumWidth(600)
-        self.setStyleSheet("QLineEdit { text-transform: uppercase; }")
+        self.setMinimumWidth(900)
+        self.setMinimumHeight(650)
 
-    # region UI Setup
+        # Configura l'interfaccia
+        self.setup_ui()
+        self.load_arma_details()
+
+        # Timer per ritardare la ricerca durante la digitazione
+        self.search_timer = QTimer()
+        self.search_timer.setSingleShot(True)
+        self.search_timer.timeout.connect(self.perform_search)
+
     def setup_ui(self):
-        """Configura l'interfaccia grafica"""
-        self.layout = QVBoxLayout(self)
-        self.create_arma_section()
-        self.create_transfer_section()
-        self.create_external_recipient_section()
-        self.create_action_buttons()
+        main_layout = QVBoxLayout()
 
-    def setup_connections(self):
-        """Configura i collegamenti tra segnali e slot"""
-        self.btnCercaDetentore.clicked.connect(self.cerca_detentore)
-        self.btnNuovoDetentore.clicked.connect(self.nuovo_detentore)
-        self.saveButton.clicked.connect(self.save_transfer)
-        self.cancelButton.clicked.connect(self.reject)
+        # Creazione dello splitter principale
+        splitter = QSplitter(Qt.Vertical)
 
-    def create_arma_section(self):
-        """Crea la sezione per visualizzare i dati dell'arma"""
-        group = QGroupBox("Dati Arma")
-        form = QFormLayout()
+        # ---- SEZIONE SUPERIORE: INFORMAZIONI ARMA ----
+        arma_widget = QFrame()
+        arma_layout = QVBoxLayout(arma_widget)
 
-        fields = [
-            ("Tipo Arma:", "tipoArmaEdit"),
-            ("Marca:", "marcaArmaEdit"),
-            ("Modello:", "modelloArmaEdit"),
-            ("Matricola:", "matricolaEdit")
-        ]
+        # Dettagli dell'arma
+        arma_group = QGroupBox("Dettagli Arma da Trasferire")
+        arma_grid = QGridLayout()
 
-        for label, name in fields:
-            edit = self.create_readonly_lineedit()
-            setattr(self, name, edit)
-            form.addRow(label, edit)
+        # Prima riga
+        self.marcaLabel = QLabel("Marca: ")
+        self.marcaValueLabel = QLabel("")
+        self.marcaValueLabel.setFont(QFont("Arial", 10, QFont.Bold))
 
-        group.setLayout(form)
-        self.layout.addWidget(group)
+        self.modelloLabel = QLabel("Modello: ")
+        self.modelloValueLabel = QLabel("")
+        self.modelloValueLabel.setFont(QFont("Arial", 10, QFont.Bold))
 
-    def create_transfer_section(self):
-        """Crea la sezione per i dati del trasferimento"""
-        group = QGroupBox("Dati Trasferimento")
-        form = QFormLayout()
+        # Seconda riga
+        self.matricolaLabel = QLabel("Matricola: ")
+        self.matricolaValueLabel = QLabel("")
+        self.matricolaValueLabel.setFont(QFont("Arial", 10, QFont.Bold))
 
-        # Data movimento
-        self.dataMovimentoEdit = QDateEdit()
-        self.dataMovimentoEdit.setDate(QDate.currentDate())
-        self.dataMovimentoEdit.setCalendarPopup(True)
+        self.calibroLabel = QLabel("Calibro: ")
+        self.calibroValueLabel = QLabel("")
+        self.calibroValueLabel.setFont(QFont("Arial", 10, QFont.Bold))
 
-        # Tipo movimento
-        self.tipoMovimentoCombo = QComboBox()
-        self.tipoMovimentoCombo.addItems(["VENDITA", "DONO", "SUCCESSIONE", "DEPOSITO", "ALTRO"])
+        # Terza riga
+        self.detentoreAttualeLabel = QLabel("Detentore Attuale: ")
+        self.detentoreAttualeValueLabel = QLabel("")
+        self.detentoreAttualeValueLabel.setFont(QFont("Arial", 10, QFont.Bold))
 
-        # Destinatario
-        self.destinatarioEdit = QLineEdit()
-        self.btnCercaDetentore = QPushButton("Cerca")
-        self.btnNuovoDetentore = QPushButton("Nuovo Detentore")
-        det_layout = QHBoxLayout()
-        det_layout.addWidget(self.destinatarioEdit)
-        det_layout.addWidget(self.btnCercaDetentore)
-        det_layout.addWidget(self.btnNuovoDetentore)
+        arma_grid.addWidget(self.marcaLabel, 0, 0)
+        arma_grid.addWidget(self.marcaValueLabel, 0, 1)
+        arma_grid.addWidget(self.modelloLabel, 0, 2)
+        arma_grid.addWidget(self.modelloValueLabel, 0, 3)
+
+        arma_grid.addWidget(self.matricolaLabel, 1, 0)
+        arma_grid.addWidget(self.matricolaValueLabel, 1, 1)
+        arma_grid.addWidget(self.calibroLabel, 1, 2)
+        arma_grid.addWidget(self.calibroValueLabel, 1, 3)
+
+        arma_grid.addWidget(self.detentoreAttualeLabel, 2, 0)
+        arma_grid.addWidget(self.detentoreAttualeValueLabel, 2, 1, 1, 3)
+
+        arma_group.setLayout(arma_grid)
+        arma_layout.addWidget(arma_group)
+        splitter.addWidget(arma_widget)
+
+        # ---- SEZIONE CENTRALE: RICERCA DETENTORI ----
+        search_widget = QFrame()
+        search_layout = QVBoxLayout(search_widget)
+
+        search_group = QGroupBox("Cerca Nuovo Detentore")
+        search_main = QVBoxLayout()
+
+        # Criteri di ricerca
+        search_grid = QGridLayout()
+
+        self.cognomeSearchLabel = QLabel("Cognome:")
+        self.cognomeSearchEdit = QLineEdit()
+        self.cognomeSearchEdit.setPlaceholderText("Inserisci il cognome...")
+
+        self.nomeSearchLabel = QLabel("Nome:")
+        self.nomeSearchEdit = QLineEdit()
+        self.nomeSearchEdit.setPlaceholderText("Inserisci il nome...")
+
+        self.codFiscSearchLabel = QLabel("Codice Fiscale:")
+        self.codFiscSearchEdit = QLineEdit()
+        self.codFiscSearchEdit.setPlaceholderText("Inserisci il codice fiscale...")
+
+        self.fascicoloSearchLabel = QLabel("Fascicolo:")
+        self.fascicoloSearchEdit = QLineEdit()
+        self.fascicoloSearchEdit.setPlaceholderText("Inserisci il numero fascicolo...")
+
+        search_grid.addWidget(self.cognomeSearchLabel, 0, 0)
+        search_grid.addWidget(self.cognomeSearchEdit, 0, 1)
+        search_grid.addWidget(self.nomeSearchLabel, 0, 2)
+        search_grid.addWidget(self.nomeSearchEdit, 0, 3)
+
+        search_grid.addWidget(self.codFiscSearchLabel, 1, 0)
+        search_grid.addWidget(self.codFiscSearchEdit, 1, 1)
+        search_grid.addWidget(self.fascicoloSearchLabel, 1, 2)
+        search_grid.addWidget(self.fascicoloSearchEdit, 1, 3)
+
+        search_main.addLayout(search_grid)
+
+        # Pulsanti di ricerca
+        search_buttons = QHBoxLayout()
+        self.searchButton = QPushButton("Cerca")
+        self.searchButton.setIcon(QIcon.fromTheme("system-search"))
+        self.searchButton.setMinimumWidth(120)
+        self.clearButton = QPushButton("Pulisci")
+        self.clearButton.setMinimumWidth(120)
+        search_buttons.addWidget(self.searchButton)
+        search_buttons.addWidget(self.clearButton)
+        search_buttons.addStretch()
+
+        search_main.addLayout(search_buttons)
+
+        # Tabella risultati
+        self.resultTable = QTableWidget()
+        self.resultTable.setColumnCount(6)
+        self.resultTable.setHorizontalHeaderLabels(
+            ["ID", "Cognome", "Nome", "Codice Fiscale", "Comune Residenza", "Fascicolo"])
+        self.resultTable.verticalHeader().setVisible(False)
+        self.resultTable.setSelectionBehavior(QTableWidget.SelectRows)
+        self.resultTable.setSelectionMode(QTableWidget.SingleSelection)
+        self.resultTable.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.resultTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Imposta la colonna ID come nascosta, ma manteniamo i dati
+        self.resultTable.setColumnHidden(0, True)
+
+        # Configura le colonne per adattarsi al contenuto
+        header = self.resultTable.horizontalHeader()
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+
+        search_main.addWidget(self.resultTable)
+        search_group.setLayout(search_main)
+        search_layout.addWidget(search_group)
+        splitter.addWidget(search_widget)
+
+        # ---- SEZIONE INFERIORE: DETTAGLI TRASFERIMENTO ----
+        transfer_widget = QFrame()
+        transfer_layout = QVBoxLayout(transfer_widget)
+
+        transfer_group = QGroupBox("Conferma Trasferimento")
+        transfer_grid = QGridLayout()
+
+        # Detentore selezionato
+        self.selectedDetentoreLabel = QLabel("Nuovo Detentore:")
+        self.selectedDetentoreValueLabel = QLabel("Nessun detentore selezionato")
+        self.selectedDetentoreValueLabel.setStyleSheet("font-weight: bold; color: blue;")
+
+        # Data trasferimento
+        self.dataLabel = QLabel("Data Trasferimento:")
+        self.dataEdit = QLineEdit()
+        self.dataEdit.setPlaceholderText("GG/MM/AAAA")
+
+        # Motivo trasferimento
+        self.motivoLabel = QLabel("Motivo Trasferimento:")
+        self.motivoCombo = QComboBox()
+        self.motivoCombo.addItems(["Vendita", "Donazione", "Eredità", "Comodato", "Altro"])
 
         # Note
+        self.noteLabel = QLabel("Note:")
         self.noteEdit = QLineEdit()
 
-        form.addRow("Data Movimento:", self.dataMovimentoEdit)
-        form.addRow("Tipo Movimento:", self.tipoMovimentoCombo)
-        form.addRow("Destinatario:", det_layout)
-        form.addRow("Note:", self.noteEdit)
+        transfer_grid.addWidget(self.selectedDetentoreLabel, 0, 0)
+        transfer_grid.addWidget(self.selectedDetentoreValueLabel, 0, 1, 1, 3)
 
-        group.setLayout(form)
-        self.layout.addWidget(group)
+        transfer_grid.addWidget(self.dataLabel, 1, 0)
+        transfer_grid.addWidget(self.dataEdit, 1, 1)
+        transfer_grid.addWidget(self.motivoLabel, 1, 2)
+        transfer_grid.addWidget(self.motivoCombo, 1, 3)
 
-    def create_external_recipient_section(self):
-        """Crea la sezione per inserire un destinatario esterno"""
-        self.group_dest_esterno = QGroupBox("Dati destinatario esterno")
-        form = QFormLayout()
+        transfer_grid.addWidget(self.noteLabel, 2, 0)
+        transfer_grid.addWidget(self.noteEdit, 2, 1, 1, 3)
 
-        fields = [
-            ("Nome:", "nomeDestEdit"),
-            ("Cognome:", "cognomeDestEdit"),
-            ("Data di nascita (gg/mm/aaaa):", "dataNascitaDestEdit"),
-            ("Luogo di nascita:", "luogoNascitaDestEdit"),
-            ("Comune di residenza:", "comuneResidenzaDestEdit"),
-            ("Via:", "viaDestEdit"),
-            ("Civico:", "civicoDestEdit")
-        ]
+        transfer_group.setLayout(transfer_grid)
+        transfer_layout.addWidget(transfer_group)
+        splitter.addWidget(transfer_widget)
 
-        for label, name in fields:
-            edit = QLineEdit()
-            setattr(self, name, edit)
-            form.addRow(label, edit)
+        # Imposta le dimensioni relative delle sezioni dello splitter
+        splitter.setSizes([150, 350, 150])
 
-        self.group_dest_esterno.setLayout(form)
-        self.group_dest_esterno.setVisible(False)
-        self.layout.addWidget(self.group_dest_esterno)
+        # Aggiungi lo splitter al layout principale
+        main_layout.addWidget(splitter)
 
-    # endregion
-
-    def create_action_buttons(self):
-        """Crea i pulsanti di azione"""
-        btn_layout = QHBoxLayout()
-        self.saveButton = QPushButton("Conferma Trasferimento")
+        # Pulsanti finali
+        buttons_layout = QHBoxLayout()
+        self.transferButton = QPushButton("Conferma Trasferimento")
+        self.transferButton.setMinimumWidth(180)
+        self.transferButton.setEnabled(False)  # Inizialmente disabilitato
         self.cancelButton = QPushButton("Annulla")
+        self.cancelButton.setMinimumWidth(120)
 
-        btn_layout.addWidget(self.saveButton)
-        btn_layout.addWidget(self.cancelButton)
-        self.layout.addLayout(btn_layout)
+        buttons_layout.addWidget(self.transferButton)
+        buttons_layout.addWidget(self.cancelButton)
+        buttons_layout.addStretch()
 
-    def create_readonly_lineedit(self):
-        """Crea un QLineEdit readonly con stile coerente"""
-        line_edit = QLineEdit()
-        line_edit.setReadOnly(True)
-        return line_edit
+        main_layout.addLayout(buttons_layout)
 
-    def load_initial_data(self):
-        """Carica i dati iniziali dell'arma e dei detentori"""
-        self.load_arma_data()
-        self.load_detentori()
+        self.setLayout(main_layout)
 
-    def load_detentori(self):
-        """Carica la lista dei detentori disponibili (escluso il cedente)"""
-        try:
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT ID_Detentore, Cognome, Nome FROM detentori WHERE ID_Detentore != ?",
-                (self.cedente_id,)
-            )
-            # Nota: I risultati non vengono usati direttamente in questa versione
-            conn.close()
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile caricare i detentori:\n{e}")
-
-    def load_arma_data(self):
-        """Carica i dati dell'arma da trasferire"""
-        try:
-            with sqlite3.connect("gestione_armi.db") as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT TipoArma, MarcaArma, ModelloArma, Matricola 
-                    FROM armi WHERE ID_ArmaDetenuta = ?
-                """, (self.arma_id,))
-
-                if row := cursor.fetchone():
-                    self.tipoArmaEdit.setText(row[0])
-                    self.marcaArmaEdit.setText(row[1])
-                    self.modelloArmaEdit.setText(row[2])
-                    self.matricolaEdit.setText(row[3])
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile caricare i dati dell'arma:\n{e}")
-
-    def save_transfer(self):
-        """Salva i dati del trasferimento nel database"""
-        try:
-            if not (destinatario_data := self.prepare_recipient_data()):
-                return
-
-            if self.destinatario_id is None:
-                self.insert_new_detentore(destinatario_data)
-
-            with sqlite3.connect("gestione_armi.db") as conn:
-                cursor = conn.cursor()
-                self.save_movement(cursor, destinatario_data)
-                self.update_weapon_owner(cursor)
-                conn.commit()
-
-            self.clear_external_recipient_fields()
-            QMessageBox.information(self, "Successo", "Trasferimento registrato con successo.")
-            self.accept()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile completare il trasferimento:\n{e}")
-
-    def prepare_recipient_data(self):
-        """Prepara e valida i dati del destinatario"""
-        if self.destinatario_id is None:  # Destinatario esterno
-            return self.prepare_external_recipient_data()
-        else:  # Destinatario esistente
-            return self.get_existing_recipient_data()
-
-    def prepare_external_recipient_data(self):
-        """Prepara e valida i dati del destinatario esterno"""
-        nome_ext = self.nomeDestEdit.text().strip()
-        cognome_ext = self.cognomeDestEdit.text().strip()
-        data_nasc_ext = self.dataNascitaDestEdit.text().strip()
-        luogo_nasc_ext = self.luogoNascitaDestEdit.text().strip()
-        residenza = self.comuneResidenzaDestEdit.text().strip()
-        via = self.viaDestEdit.text().strip()
-        civico = self.civicoDestEdit.text().strip()
-
-        # Validazione campi obbligatori
-        campi_mancanti = []
-        if not nome_ext: campi_mancanti.append("Nome")
-        if not cognome_ext: campi_mancanti.append("Cognome")
-        if not data_nasc_ext: campi_mancanti.append("Data di nascita")
-        if not luogo_nasc_ext: campi_mancanti.append("Luogo di nascita")
-
-        if campi_mancanti:
-            QMessageBox.warning(
-                self,
-                "Dati Mancanti",
-                "Compila i seguenti campi:\n- " + "\n- ".join(campi_mancanti)
-            )
-            return None
-
-        return [cognome_ext, nome_ext, data_nasc_ext, luogo_nasc_ext, residenza, via, civico]
-
-    def get_existing_recipient_data(self):
-        """Recupera i dati del destinatario esistente dal database"""
-        try:
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT Cognome, Nome, DataNascita, LuogoNascita FROM detentori WHERE ID_Detentore = ?",
-                (self.destinatario_id,)
-            )
-            destinatario_data = list(cursor.fetchone()) + ["", "",
-                                                           ""]  # aggiunge campi vuoti per residenza, via, civico
-            conn.close()
-            return destinatario_data
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile recuperare i dati del destinatario:\n{e}")
-            return None
-
-    def get_cedente_data(self):
-        """Recupera i dati del cedente dal database"""
-        try:
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT Cognome, Nome, DataNascita, LuogoNascita FROM detentori WHERE ID_Detentore = ?",
-                (self.cedente_id,)
-            )
-            cedente_data = cursor.fetchone()
-            conn.close()
-            return cedente_data
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile recuperare i dati del cedente:\n{e}")
-            return None
-
-    def get_arma_data(self):
-        """Recupera i dati completi dell'arma dal database"""
-        try:
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT TipoArma, MarcaArma, ModelloArma, TipologiaArma, Matricola,
-                       CalibroArma, MatricolaCanna, LunghezzaCanna, NumeroCanne, ArmaLungaCorta
-                FROM armi WHERE ID_ArmaDetenuta = ?
-            """, (self.arma_id,))
-            arma_data = cursor.fetchone()
-            conn.close()
-            return arma_data
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile recuperare i dati dell'arma:\n{e}")
-            return None
-
-    def save_movement(self, cursor, destinatario_data):
-        """Salva il movimento nel database"""
-        query = """
-            INSERT INTO MovimentiArma (
-                ID_ArmaDetenuta, ID_Detentore, TipoArma, MarcaArma, ModelloArma, TipologiaArma,
-                Matricola, CalibroArma, MatricolaCanna, LunghezzaCanna, NumeroCanne, ArmaLungaCorta,
-                TipoCanna, CategoriaArma, FunzionamentoArma, CaricamentoArma, StatoProduzioneArma,
-                TipoMunizioni, QuantitaMunizioni, TipoBossolo, TipoCedente, NoteArma, DataTrasferimento,
-                MotivoTrasferimento, NomeCedente, CognomeCedente, DataNascitaCedente, LuogoNascitaCedente,
-                Cedente_CodiceFiscale, TelefonoCedente, Acquirente_Nome, Acquirente_Cognome,
-                DataNascitaDestinatario, LuogoNascitaDestinatario, Acquirente_CodiceFiscale,
-                DataMovimento, TipoMovimento, ID_Cedente, ID_Destinatario, Note, CognomeDestinatario,
-                NomeDestinatario, AltroCampo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        params = self.prepare_movement_params(destinatario_data)
-        cursor.execute(query, params)
-
-    def update_weapon_owner(self, cursor):
-        """Aggiorna il proprietario dell'arma"""
-        cursor.execute("""
-            UPDATE armi 
-            SET ID_Detentore = ?
-            WHERE ID_ArmaDetenuta = ?
-        """, (self.destinatario_id, self.arma_id))
-    #endregion
-
-    #region Helpers
-    def setup_connections(self):
-        """Configura i collegamenti tra segnali e slot"""
-        self.btnCercaDetentore.clicked.connect(self.cerca_detentore)
-        self.btnNuovoDetentore.clicked.connect(self.nuovo_detentore)
-        self.saveButton.clicked.connect(self.save_transfer)
+        # Connessione segnali
+        self.searchButton.clicked.connect(self.perform_search)
+        self.clearButton.clicked.connect(self.clear_search)
+        self.resultTable.itemSelectionChanged.connect(self.update_selected_detentore)
+        self.transferButton.clicked.connect(self.execute_transfer)
         self.cancelButton.clicked.connect(self.reject)
 
-    def create_readonly_lineedit(self):
-        """Crea un QLineEdit readonly con stile coerente"""
-        line_edit = QLineEdit()
-        line_edit.setReadOnly(True)
-        return line_edit
+        # Connessione dei campi di ricerca con timer per la ricerca dinamica
+        self.cognomeSearchEdit.textChanged.connect(self.delayed_search)
+        self.nomeSearchEdit.textChanged.connect(self.delayed_search)
+        self.codFiscSearchEdit.textChanged.connect(self.delayed_search)
+        self.fascicoloSearchEdit.textChanged.connect(self.delayed_search)
 
-    def save_transfer_to_db(self, destinatario_data, data_movimento, tipo_movimento, note, cedente_data, arma_data):
-        """Salva i dati del trasferimento nel database"""
-        conn = sqlite3.connect("gestione_armi.db")
-        cursor = conn.cursor()
+        # Doppio click sulla tabella seleziona il detentore
+        self.resultTable.cellDoubleClicked.connect(self.select_detentore)
 
-        # Inserimento nella tabella MovimentiArma
-        cursor.execute("""
-            INSERT INTO MovimentiArma (
-                ID_ArmaDetenuta, ID_Detentore, TipoArma, MarcaArma, ModelloArma, TipologiaArma,
-                Matricola, CalibroArma, MatricolaCanna, LunghezzaCanna, NumeroCanne, ArmaLungaCorta,
-                TipoCanna, CategoriaArma, FunzionamentoArma, CaricamentoArma, StatoProduzioneArma,
-                TipoMunizioni, QuantitaMunizioni, TipoBossolo, TipoCedente, NoteArma, DataTrasferimento,
-                MotivoTrasferimento, NomeCedente, CognomeCedente, DataNascitaCedente, LuogoNascitaCedente,
-                Cedente_CodiceFiscale, TelefonoCedente, Acquirente_Nome, Acquirente_Cognome,
-                DataNascitaDestinatario, LuogoNascitaDestinatario, Acquirente_CodiceFiscale,
-                DataMovimento, TipoMovimento, ID_Cedente, ID_Destinatario, Note, CognomeDestinatario,
-                NomeDestinatario, AltroCampo
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?  
-            )
-        """, (
-            self.arma_id,  # ID_ArmaDetenuta
-            None if self.destinatario_id is None else self.destinatario_id,
-            *arma_data[:10],  # Dati arma (primi 10 campi)
-            *[""] * 10,  # Campi vuoti per dati non specificati
-            data_movimento,  # DataTrasferimento
-            tipo_movimento,  # MotivoTrasferimento
-            cedente_data[1],  # NomeCedente
-            cedente_data[0],  # CognomeCedente
-            cedente_data[2],  # DataNascitaCedente
-            cedente_data[3],  # LuogoNascitaCedente
-            *[""] * 2,  # CodiceFiscale e Telefono cedente
-            destinatario_data[1],  # Nome destinatario
-            destinatario_data[0],  # Cognome destinatario
-            destinatario_data[2],  # Data di nascita destinatario
-            destinatario_data[3],  # Luogo di nascita destinatario
-            "",  # Codice fiscale destinatario
-            data_movimento,  # DataMovimento
-            tipo_movimento,  # TipoMovimento
-            self.cedente_id,
-            None if self.destinatario_id is None else self.destinatario_id,
-            note,
-            destinatario_data[0],  # CognomeDestinatario
-            destinatario_data[1],  # NomeDestinatario
-            ""  # AltroCampo
-        ))
+        # Converti tutto in maiuscolo
+        convert_all_lineedits_to_uppercase(self)
 
-        # Aggiorna il detentore dell'arma
-        cursor.execute("""
-            UPDATE armi 
-            SET ID_Detentore = ?
-            WHERE ID_ArmaDetenuta = ?
-        """, (self.destinatario_id, self.arma_id))
-
-        conn.commit()
-        conn.close()
-
-    def prepare_movement_params(self, destinatario_data):
-        """Prepara i parametri per l'inserimento del movimento"""
-        cedente_data = self.get_cedente_data()
-        arma_data = self.get_arma_data()
-
-        return (
-            self.arma_id,
-            self.destinatario_id,
-            *arma_data[:10],
-            *[""] * 10,
-            self.dataMovimentoEdit.date().toString("yyyy-MM-dd"),
-            self.tipoMovimentoCombo.currentText(),
-            cedente_data[1],  # NomeCedente
-            cedente_data[0],  # CognomeCedente
-            cedente_data[2],  # DataNascitaCedente
-            cedente_data[3],  # LuogoNascitaCedente
-            *[""] * 2,
-            destinatario_data[1],  # Nome destinatario
-            destinatario_data[0],  # Cognome destinatario
-            destinatario_data[2],  # Data di nascita
-            destinatario_data[3],  # Luogo di nascita
-            "",
-            self.dataMovimentoEdit.date().toString("yyyy-MM-dd"),
-            self.tipoMovimentoCombo.currentText(),
-            self.cedente_id,
-            self.destinatario_id,
-            self.noteEdit.text(),
-            destinatario_data[0],  # CognomeDestinatario
-            destinatario_data[1],  # NomeDestinatario
-            ""
-        )
-    
-    def clear_external_recipient_fields(self):
-        """Pulisce i campi del destinatario esterno"""
-        for field in [self.nomeDestEdit, self.cognomeDestEdit, self.dataNascitaDestEdit,
-                     self.luogoNascitaDestEdit, self.comuneResidenzaDestEdit, self.viaDestEdit,
-                     self.civicoDestEdit]:
-            field.clear()
-        self.group_dest_esterno.setVisible(False)
-    #endregion
-    def cerca_detentore(self):
-        """Cerca un detentore nel database"""
-        nome_cognome = self.destinatarioEdit.text().strip().upper()
-        if not nome_cognome:
-            QMessageBox.warning(self, "Attenzione", "Inserisci nome e cognome da cercare.")
+    def load_arma_details(self):
+        """Carica e visualizza i dettagli dell'arma da trasferire"""
+        if not self.arma_id:
             return
 
         try:
-            # Separa nome e cognome (assumendo formato: COGNOME NOME)
-            parts = nome_cognome.split()
-            if len(parts) < 2:
-                QMessageBox.warning(self, "Formato Errato", "Scrivi almeno nome e cognome separati da spazio.")
-                return
-
-            cognome = parts[0]
-            nome = " ".join(parts[1:])
-
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
+
+            # Ottieni i dettagli dell'arma
             cursor.execute("""
-                SELECT ID_Detentore FROM detentori
-                WHERE UPPER(Cognome) = ? AND UPPER(Nome) = ?
-            """, (cognome, nome))
-            row = cursor.fetchone()
+                SELECT a.MarcaArma, a.ModelloArma, a.Matricola, a.CalibroArma,
+                       d.Cognome, d.Nome, d.CodiceFiscale
+                FROM armi a
+                LEFT JOIN detentori d ON a.ID_Detentore = d.ID_Detentore
+                WHERE a.ID_ArmaDetenuta = ?
+            """, (self.arma_id,))
+
+            result = cursor.fetchone()
+            if result:
+                marca, modello, matricola, calibro, cognome_det, nome_det, cf_det = result
+
+                self.marcaValueLabel.setText(marca or "")
+                self.modelloValueLabel.setText(modello or "")
+                self.matricolaValueLabel.setText(matricola or "")
+                self.calibroValueLabel.setText(calibro or "")
+
+                detentore_info = f"{cognome_det or ''} {nome_det or ''}"
+                if cf_det:
+                    detentore_info += f" (CF: {cf_det})"
+                self.detentoreAttualeValueLabel.setText(detentore_info)
+
+            conn.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore nel caricamento dei dati dell'arma: {str(e)}")
+
+    def delayed_search(self):
+        """Ritarda la ricerca per evitare troppe query durante la digitazione"""
+        self.search_timer.start(500)  # Ritardo di 500ms
+
+    def perform_search(self):
+        """Esegue la ricerca dei detentori in base ai criteri inseriti"""
+        cognome = self.cognomeSearchEdit.text().strip()
+        nome = self.nomeSearchEdit.text().strip()
+        codice_fiscale = self.codFiscSearchEdit.text().strip()
+        fascicolo = self.fascicoloSearchEdit.text().strip()
+
+        # Verifica se almeno un criterio è valorizzato
+        if not (cognome or nome or codice_fiscale or fascicolo):
+            self.resultTable.setRowCount(0)
+            return
+
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+
+            # Costruisci la query dinamicamente in base ai criteri inseriti
+            query = """
+                SELECT ID_Detentore, Cognome, Nome, CodiceFiscale, ComuneResidenza, FascicoloPersonale
+                FROM detentori
+                WHERE 1=1
+            """
+            params = []
+
+            if cognome:
+                query += " AND Cognome LIKE ?"
+                params.append(f"%{cognome}%")
+
+            if nome:
+                query += " AND Nome LIKE ?"
+                params.append(f"%{nome}%")
+
+            if codice_fiscale:
+                query += " AND CodiceFiscale LIKE ?"
+                params.append(f"%{codice_fiscale}%")
+
+            if fascicolo:
+                query += " AND FascicoloPersonale LIKE ?"
+                params.append(f"%{fascicolo}%")
+
+            # Escludiamo il detentore corrente
+            if self.current_detentore:
+                query += " AND ID_Detentore <> ?"
+                params.append(self.current_detentore)
+
+            # Aggiungi ordinamento
+            query += " ORDER BY Cognome, Nome"
+
+            cursor.execute(query, params)
+            results = cursor.fetchall()
+
+            # Popola la tabella con i risultati
+            self.resultTable.setRowCount(len(results))
+            for row, (id_detentore, cognome, nome, cf, comune, fascicolo) in enumerate(results):
+                id_item = QTableWidgetItem(str(id_detentore))
+                id_item.setData(Qt.UserRole, id_detentore)  # Conserviamo l'ID come dato ausiliario
+
+                cognome_item = QTableWidgetItem(cognome or "")
+                nome_item = QTableWidgetItem(nome or "")
+                cf_item = QTableWidgetItem(cf or "")
+                comune_item = QTableWidgetItem(comune or "")
+                fascicolo_item = QTableWidgetItem(fascicolo or "")
+
+                self.resultTable.setItem(row, 0, id_item)
+                self.resultTable.setItem(row, 1, cognome_item)
+                self.resultTable.setItem(row, 2, nome_item)
+                self.resultTable.setItem(row, 3, cf_item)
+                self.resultTable.setItem(row, 4, comune_item)
+                self.resultTable.setItem(row, 5, fascicolo_item)
+
             conn.close()
 
-            if row:
-                self.destinatario_id = row[0]
-                self.group_dest_esterno.setVisible(False)
-                QMessageBox.information(self, "Trovato", "Detentore trovato e selezionato.")
-            else:
-                self.destinatario_id = None
-                self.group_dest_esterno.setVisible(True)
-                QMessageBox.information(self, "Non trovato",
-                                        "Nessun detentore trovato. Inserisci i dati manualmente.")
+            # Imposta il messaggio appropriato se non ci sono risultati
+            if len(results) == 0:
+                QMessageBox.information(self, "Ricerca", "Nessun detentore trovato con i criteri specificati.")
 
         except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Errore durante la ricerca:\n{e}")
+            QMessageBox.critical(self, "Errore", f"Errore durante la ricerca: {str(e)}")
 
-    def nuovo_detentore(self):
-        """Apre il dialog per inserire un nuovo detentore"""
-        from Detentori import InserisciDetentoreDialog
-        dialog = InserisciDetentoreDialog()
-        if dialog.exec_() == QDialog.Accepted:
-            self.cerca_detentore()  # Ricarica dopo l'inserimento
+    def clear_search(self):
+        """Pulisce i campi di ricerca e la tabella risultati"""
+        self.cognomeSearchEdit.clear()
+        self.nomeSearchEdit.clear()
+        self.codFiscSearchEdit.clear()
+        self.fascicoloSearchEdit.clear()
+        self.resultTable.setRowCount(0)
+        self.selected_detentore_id = None
+        self.selected_detentore_data = None
+        self.selectedDetentoreValueLabel.setText("Nessun detentore selezionato")
+        self.transferButton.setEnabled(False)
+
+    def update_selected_detentore(self):
+        """Aggiorna l'etichetta con il detentore selezionato"""
+        selected_items = self.resultTable.selectedItems()
+        if not selected_items:
+            self.selected_detentore_id = None
+            self.selected_detentore_data = None
+            self.selectedDetentoreValueLabel.setText("Nessun detentore selezionato")
+            self.transferButton.setEnabled(False)
+            return
+
+        # Ottieni la riga selezionata
+        row = selected_items[0].row()
+        id_item = self.resultTable.item(row, 0)
+        cognome_item = self.resultTable.item(row, 1)
+        nome_item = self.resultTable.item(row, 2)
+        cf_item = self.resultTable.item(row, 3)
+
+        if id_item and cognome_item and nome_item:
+            self.selected_detentore_id = id_item.data(Qt.UserRole)
+            self.selected_detentore_data = {
+                'id': self.selected_detentore_id,
+                'cognome': cognome_item.text(),
+                'nome': nome_item.text(),
+                'cf': cf_item.text() if cf_item else ""
+            }
+
+            detentore_info = f"{cognome_item.text()} {nome_item.text()}"
+            if cf_item and cf_item.text():
+                detentore_info += f" (CF: {cf_item.text()})"
+
+            self.selectedDetentoreValueLabel.setText(detentore_info)
+            self.transferButton.setEnabled(True)
+
+    def select_detentore(self, row, column):
+        """Doppio click su una riga seleziona il detentore"""
+        if self.selected_detentore_id:
+            reply = QMessageBox.question(self, "Conferma Selezione",
+                                         f"Vuoi selezionare questo detentore per il trasferimento?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+            if reply == QMessageBox.Yes:
+                self.dataEdit.setFocus()
+
+    def execute_transfer(self):
+        """Esegue il trasferimento dell'arma al nuovo detentore"""
+        if not self.selected_detentore_id:
+            QMessageBox.warning(self, "Attenzione", "Nessun detentore selezionato.")
+            return
+
+        if not self.validate_transfer_data():
+            return
+
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+
+            # Aggiorna il detentore dell'arma
+            cursor.execute("""
+                UPDATE armi
+                SET ID_Detentore = ?
+                WHERE ID_ArmaDetenuta = ?
+            """, (self.selected_detentore_id, self.arma_id))
+
+            # Registra il trasferimento nella tabella dei trasferimenti
+            cursor.execute("""
+                INSERT INTO trasferimenti 
+                (ID_Arma, ID_Detentore_Cedente, ID_Detentore_Ricevente, Data_Trasferimento, Motivo_Trasferimento, Note)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                self.arma_id,
+                self.cedente_id,
+                self.selected_detentore_id,
+                self.dataEdit.text(),
+                self.motivoCombo.currentText(),
+                self.noteEdit.text()
+            ))
+
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Successo", "Trasferimento dell'arma completato con successo!")
+            self.accept()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore durante il trasferimento: {str(e)}")
+
+    def validate_transfer_data(self):
+        """Valida i dati del trasferimento"""
+        data = self.dataEdit.text().strip()
+        if not data:
+            QMessageBox.warning(self, "Attenzione", "Inserire la data di trasferimento.")
+            self.dataEdit.setFocus()
+            return False
+
+        # Qui si potrebbero aggiungere ulteriori validazioni sulla data
+
+        return True
+
+
+if __name__ == "__main__":
+    import sys
+    from PyQt5.QtWidgets import QApplication
+
+    app = QApplication(sys.argv)
+    dialog = TransferimentoDialog(arma_id=1, cedente_id=1, current_detentore=1)
+    dialog.exec_()
