@@ -245,8 +245,8 @@ class ArmaDialog(QDialog):
         grid.addWidget(self.tipoArmaEdit, 0, 1)
         grid.addWidget(QLabel("Marca:"), 0, 2)
         grid.addWidget(self.marcaArmaEdit, 0, 3)
-        grid.addWidget(QLabel("Data Acquisto:"), 0, 4)
-        grid.addWidget(self.DataAcquistoEdit, 0, 5)
+        grid.addWidget(QLabel("Data Acquisto:"), 0, 4)  # Corretta visualizzazione
+        grid.addWidget(self.DEdit, 0, 5)  # Corretto riferimento al campo
 
         # Riga 2
         grid.addWidget(QLabel("Modello:"), 1, 0)
@@ -261,7 +261,6 @@ class ArmaDialog(QDialog):
         grid.addWidget(self.calibroArmaEdit, 2, 3)
 
         self.group_identification.setLayout(grid)
-
     def create_arma_technical_group(self):
         """Crea il gruppo per i dettagli tecnici dell'arma"""
         self.group_technical = QGroupBox("Dati Tecnici")
@@ -592,7 +591,7 @@ class ArmaDialog(QDialog):
         self.indirizzoResidenzaCedenteEdit.setText(data.get('IndirizzoResidenzaCedente', ''))
         self.civicoResidenzaCedenteEdit.setText(data.get('CivicoResidenzaCedente', ''))
         self.telefonoCedenteEdit.setText(data.get('TelefonoCedente', ''))
-        self.dataAcquistoEdit.setText(data.get('DataAcquisto', ''))
+        self.dataAcquistoEdit.setText(data.get('DataAcquisto', ''))  # Corretto popolamento del campo
 
         # Carica lo stato di produzione se la marca esiste
         marca = data.get('MarcaArma', '')
@@ -724,7 +723,7 @@ class ArmaDialog(QDialog):
             indirizzoResidenzaCedente = self.indirizzoResidenzaCedenteEdit.text()
             civicoResidenzaCedente = self.civicoResidenzaCedenteEdit.text()
             telefonoCedente = self.telefonoCedenteEdit.text()
-            dataAcquisto = self.dataAcquistoEdit.text()  # Aggiungi questa riga per raccogliere il valore
+            dataAcquisto = self.dataAcquistoEdit.text()  # Corretto salvataggio del valore
 
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
                 # UPDATE per la modifica
@@ -734,7 +733,7 @@ class ArmaDialog(QDialog):
                         ArmaLungaCorta=?, TipoCanna=?, CategoriaArma=?, FunzionamentoArma=?, CaricamentoArma=?, PunzoniArma=?, StatoProduzioneArma=?,
                         ExOrdDem=?, TipoMunizioni=?, QuantitaMunizioni=?, TipoBossolo=?, TipoCedente=?, NoteArma=?, CognomeCedente=?, NomeCedente=?,
                         DataNascitaCedente=?, LuogoNascitaCedente=?, SiglaProvinciaResidenzaCedente=?, ComuneResidenzaCedente=?, SiglaProvinciaNascitaCedente=?,
-                        TipoViaResidenzaCedente=?, IndirizzoResidenzaCedente=?, CivicoResidenzaCedente=?, TelefonoCedente=?, dataAcquisto=?
+                        TipoViaResidenzaCedente=?, IndirizzoResidenzaCedente=?, CivicoResidenzaCedente=?, TelefonoCedente=?, DataAcquisto=?
                     WHERE ID_ArmaDetenuta=?
                 """, (
                     tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma, matricolaCanna,
@@ -746,7 +745,7 @@ class ArmaDialog(QDialog):
                     dataNascitaCedente, luogoNascitaCedente, siglaProvinciaResidenzaCedente, comuneResidenzaCedente,
                     siglaProvinciaNascitaCedente,
                     tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
-                    dataAcquisto,  # Aggiungi il parametro qui
+                    dataAcquisto,
                     self.arma_data.get('ID_ArmaDetenuta')
                 ))
             else:
@@ -756,7 +755,7 @@ class ArmaDialog(QDialog):
                         NumeroCanne, ArmaLungaCorta, TipoCanna, CategoriaArma, FunzionamentoArma, CaricamentoArma, PunzoniArma, StatoProduzioneArma,
                         ExOrdDem, TipoMunizioni, QuantitaMunizioni, TipoBossolo, TipoCedente, NoteArma, CognomeCedente, NomeCedente, DataNascitaCedente,
                         LuogoNascitaCedente, SiglaProvinciaResidenzaCedente, ComuneResidenzaCedente, SiglaProvinciaNascitaCedente, TipoViaResidenzaCedente,
-                        IndirizzoResidenzaCedente, CivicoResidenzaCedente, TelefonoCedente, dataAcquisto)
+                        IndirizzoResidenzaCedente, CivicoResidenzaCedente, TelefonoCedente, DataAcquisto)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     self.detentore_id, tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma,
@@ -768,7 +767,7 @@ class ArmaDialog(QDialog):
                     dataNascitaCedente, luogoNascitaCedente, siglaProvinciaResidenzaCedente, comuneResidenzaCedente,
                     siglaProvinciaNascitaCedente,
                     tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
-                    dataAcquisto  # Aggiungi il parametro qui
+                    dataAcquisto
                 ))
             conn.commit()
         except Exception as e:
