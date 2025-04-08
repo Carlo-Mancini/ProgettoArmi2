@@ -652,10 +652,7 @@ class ArmaDialog(QDialog):
         # Prova a impostare esplicitamente il campo DataAcquisto
         data_acquisto = data.get('DataAcquisto', '')
         print(f"DEBUG - Impostazione dataAcquistoEdit: {data_acquisto}")
-        self.dataAcquistoEdit.setText(data_acquisto)
 
-        # DEBUG: Verifichiamo cosa contiene il campo dopo averlo impostato
-        print(f"DEBUG - Valore attuale di dataAcquistoEdit: {self.dataAcquistoEdit.text()}")
 
         # Carica lo stato di produzione se la marca esiste
         marca = data.get('MarcaArma', '')
@@ -795,6 +792,9 @@ class ArmaDialog(QDialog):
             # Ottieni le date formattate
             dataAcquisto = self.dataAcquistoEdit.date().toString("dd/MM/yyyy")
             dataNascitaCedente = self.dataNascitaCedenteEdit.date().toString("dd/MM/yyyy")
+            self.dataAcquistoEdit.setDate(QDate())  # Data vuota/invalida
+            # oppure
+            self.dataAcquistoEdit.setDate(QDate.currentDate())  # Data odierna
 
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
                 # UPDATE per la modifica
@@ -904,6 +904,22 @@ class ArmaDialog(QDialog):
             return False
 
         return True
+
+
+    def string_to_qdate(date_string):
+        """Converte una stringa in formato 'dd/MM/yyyy' in un oggetto QDate"""
+        if not date_string:
+            return QDate()
+
+        try:
+            date_parts = date_string.split('/')
+            if len(date_parts) == 3:
+                day, month, year = map(int, date_parts)
+                return QDate(year, month, day)
+        except (ValueError, IndexError):
+            pass
+
+        return QDate()  # Restituisce una data invalida in caso di errore
 
 if __name__ == "__main__":
     import sys
