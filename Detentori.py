@@ -1,62 +1,106 @@
 import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QPushButton, QVBoxLayout, QGroupBox,
-    QListWidget, QTabWidget, QWidget, QHBoxLayout, QListWidgetItem, QComboBox, QCompleter, QTableWidget
+    QListWidget, QTabWidget, QWidget, QHBoxLayout, QListWidgetItem, QComboBox,
+    QCompleter, QTableWidget, QGridLayout, QLabel, QScrollArea, QSizePolicy,
+    QMessageBox, QHeaderView, QTableWidgetItem
 )
 from Utility import convert_all_lineedits_to_uppercase
 from PyQt5.QtCore import Qt
 from Utility import get_sigla_provincia
+
 
 class InserisciDetentoreDialog(QDialog):
     def __init__(self, detentore_data=None):
         super().__init__()
         self.detentore_data = detentore_data  # se presente, significa che è un update
         self.setWindowTitle("Detentore")
-        self.setMinimumWidth(800)
+        self.setMinimumWidth(850)
+        self.setMinimumHeight(600)
 
         main_layout = QVBoxLayout()
-        tab_widget = QTabWidget()
 
-        # Tab 1: Dati Detentore (Dati Personali e Contatti)
-        tab_dati = QWidget()
-        dati_layout = QHBoxLayout()
-        group_personale = QGroupBox("Dati Personali")
-        layout_personale = QFormLayout()
+        # Creazione del tab widget principale
+        self.tab_widget = QTabWidget()
+
+        # Creazione delle tab
+        self.create_dati_tab()
+        self.create_documenti_tab()
+        self.create_armi_tab()
+
+        # Aggiunta delle tab al QTabWidget
+        self.tab_widget.addTab(self.tab_dati, "Detentore")
+        self.tab_widget.addTab(self.tab_documenti, "Documenti")
+        self.tab_widget.addTab(self.tab_armi, "Armi")
+
+        # Aggiungo il QTabWidget al layout principale
+        main_layout.addWidget(self.tab_widget)
+
+        # Creazione dei pulsanti principali
+        self.create_main_buttons()
+        main_layout.addLayout(self.button_layout)
+
+        self.setLayout(main_layout)
+
+        # Connessione dei segnali
+        self.connect_signals()
+
+        # Popolazione dei campi se sono forniti dati
+        if detentore_data:
+            self.populate_fields(detentore_data)
+            self.carica_armi()
+
+        # Converti tutto in maiuscolo
+        convert_all_lineedits_to_uppercase(self)
+
+    def create_dati_tab(self):
+        """Crea la tab con i dati personali e di contatto del detentore"""
+        self.tab_dati = QWidget()
+        main_layout = QVBoxLayout()
+
+        # Creazione dei widget
+        self.create_personal_data_widgets()
+        self.create_contact_widgets()
+
+        # Creazione dei gruppi
+        personal_group = self.create_personal_data_group()
+        contact_group = self.create_contact_group()
+
+        # Aggiunta dei gruppi al layout
+        main_layout.addWidget(personal_group)
+        main_layout.addWidget(contact_group)
+        main_layout.addStretch(1)
+
+        self.tab_dati.setLayout(main_layout)
+
+    def create_personal_data_widgets(self):
+        """Crea i widget per i dati personali"""
         self.nomeEdit = QLineEdit()
         self.cognomeEdit = QLineEdit()
         self.dataNascitaEdit = QLineEdit()
-        # Inizializzo la QComboBox per "Luogo Nascita" con i comuni dal DB
+
+        # Combo per il luogo di nascita
         self.luogoNascitaCombo = QComboBox()
         self.luogoNascitaCombo.setEditable(True)
-        comuni = load_comuni()  # restituisce una lista di comuni (senza il primo record, in maiuscolo)
+        comuni = load_comuni()
         self.luogoNascitaCombo.addItems(comuni)
         self.luogoNascitaCombo.setCurrentIndex(-1)
         self.luogoNascitaCombo.clearEditText()
+
         completer = QCompleter(comuni)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.luogoNascitaCombo.setCompleter(completer)
-        layout_personale.addRow("Luogo Nascita:", self.luogoNascitaCombo)
-        # Collega editingFinished del QLineEdit interno per aggiornare la sigla
-        self.luogoNascitaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_nascita)
 
         self.siglaProvinciaNascitaEdit = QLineEdit()
-        layout_personale.addRow("Sigla Provincia Nascita:", self.siglaProvinciaNascitaEdit)
+        self.siglaProvinciaNascitaEdit.setMaximumWidth(60)
         self.sessoEdit = QLineEdit()
+        self.sessoEdit.setMaximumWidth(60)
         self.codiceFiscaleEdit = QLineEdit()
-        layout_personale.addRow("Nome:", self.nomeEdit)
-        layout_personale.addRow("Cognome:", self.cognomeEdit)
-        layout_personale.addRow("Data Nascita:", self.dataNascitaEdit)
-        layout_personale.addRow("Sesso:", self.sessoEdit)
-        layout_personale.addRow("Codice Fiscale:", self.codiceFiscaleEdit)
-        # Aggiungi un pulsante per il calcolo
         self.btnCalcolaCF = QPushButton("Calcola CF")
-        layout_personale.addRow("", self.btnCalcolaCF)
-        self.btnCalcolaCF.clicked.connect(self.calcola_codice_fiscale)
+        self.btnCalcolaCF.setMaximumWidth(100)
 
-        group_personale.setLayout(layout_personale)
-
-        group_contatti = QGroupBox("Contatti")
-        layout_contatti = QFormLayout()
+    def create_contact_widgets(self):
+        """Crea i widget per i contatti"""
         self.comuneResidenzaCombo = QComboBox()
         self.comuneResidenzaCombo.setEditable(True)
         comuni = load_comuni()
@@ -67,150 +111,309 @@ class InserisciDetentoreDialog(QDialog):
         completer_residenza = QCompleter(comuni)
         completer_residenza.setCaseSensitivity(Qt.CaseInsensitive)
         self.comuneResidenzaCombo.setCompleter(completer_residenza)
-        layout_contatti.addRow("Comune Residenza:", self.comuneResidenzaCombo)
+
         self.siglaProvinciaResidenzaEdit = QLineEdit()
-        layout_contatti.addRow("Sigla Provincia Residenza:", self.siglaProvinciaResidenzaEdit)
-        self.comuneResidenzaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_residenza)
+        self.siglaProvinciaResidenzaEdit.setMaximumWidth(60)
         self.tipoViaEdit = QLineEdit()
+        self.tipoViaEdit.setMaximumWidth(100)
         self.viaEdit = QLineEdit()
         self.civicoEdit = QLineEdit()
+        self.civicoEdit.setMaximumWidth(80)
         self.telefonoEdit = QLineEdit()
-        layout_contatti.addRow("Tipo Via:", self.tipoViaEdit)
-        layout_contatti.addRow("Via:", self.viaEdit)
-        layout_contatti.addRow("Civico:", self.civicoEdit)
-        layout_contatti.addRow("Telefono:", self.telefonoEdit)
-        group_contatti.setLayout(layout_contatti)
 
-        dati_layout.addWidget(group_personale)
-        dati_layout.addWidget(group_contatti)
-        tab_dati.setLayout(dati_layout)
+    def create_personal_data_group(self):
+        """Crea il gruppo per i dati personali"""
+        group_personale = QGroupBox("Dati Personali")
+        grid = QGridLayout()
 
-        # Tab 2: Documenti e Detenzioni
-        tab_documenti = QWidget()
-        documenti_layout = QVBoxLayout()
-        group_documenti = QGroupBox("Documenti e Detenzioni")
-        layout_documenti = QFormLayout()
+        # Riga 1
+        grid.addWidget(QLabel("Cognome:"), 0, 0)
+        grid.addWidget(self.cognomeEdit, 0, 1)
+        grid.addWidget(QLabel("Nome:"), 0, 2)
+        grid.addWidget(self.nomeEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Data Nascita:"), 1, 0)
+        grid.addWidget(self.dataNascitaEdit, 1, 1)
+        grid.addWidget(QLabel("Sesso:"), 1, 2)
+        grid.addWidget(self.sessoEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Luogo Nascita:"), 2, 0)
+        grid.addWidget(self.luogoNascitaCombo, 2, 1)
+        grid.addWidget(QLabel("Prov. Nascita:"), 2, 2)
+        grid.addWidget(self.siglaProvinciaNascitaEdit, 2, 3)
+
+        # Riga 4
+        grid.addWidget(QLabel("Codice Fiscale:"), 3, 0)
+        grid.addWidget(self.codiceFiscaleEdit, 3, 1)
+        grid.addWidget(self.btnCalcolaCF, 3, 2)
+
+        group_personale.setLayout(grid)
+        return group_personale
+
+    def create_contact_group(self):
+        """Crea il gruppo per i contatti"""
+        group_contatti = QGroupBox("Contatti e Residenza")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Comune Residenza:"), 0, 0)
+        grid.addWidget(self.comuneResidenzaCombo, 0, 1)
+        grid.addWidget(QLabel("Provincia:"), 0, 2)
+        grid.addWidget(self.siglaProvinciaResidenzaEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Tipo Via:"), 1, 0)
+        grid.addWidget(self.tipoViaEdit, 1, 1)
+        grid.addWidget(QLabel("Via:"), 1, 2)
+        grid.addWidget(self.viaEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Civico:"), 2, 0)
+        grid.addWidget(self.civicoEdit, 2, 1)
+        grid.addWidget(QLabel("Telefono:"), 2, 2)
+        grid.addWidget(self.telefonoEdit, 2, 3)
+
+        group_contatti.setLayout(grid)
+        return group_contatti
+
+    def create_documenti_tab(self):
+        """Crea la tab con i documenti e detenzioni"""
+        self.tab_documenti = QWidget()
+        main_layout = QVBoxLayout()
+
+        # Creazione dei widget per i documenti
+        self.create_documents_widgets()
+
+        # Utilizzo di uno scroll area per gestire molti campi
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+
+        # Creazione dei gruppi
+        license_group = self.create_license_group()
+        detention_group = self.create_detention_group()
+        document_group = self.create_document_group()
+
+        # Aggiunta dei gruppi al layout
+        content_layout.addWidget(license_group)
+        content_layout.addWidget(detention_group)
+        content_layout.addWidget(document_group)
+        content_layout.addStretch(1)
+
+        scroll.setWidget(content_widget)
+        main_layout.addWidget(scroll)
+
+        self.tab_documenti.setLayout(main_layout)
+
+    def create_documents_widgets(self):
+        """Crea i widget per i documenti"""
+        # Fascicolo e titolo
         self.fascicoloPersonaleEdit = QLineEdit()
         self.tipologiaTitoloEdit = QLineEdit()
+
+        # Ente rilascio
         self.enteRilascioEdit = QLineEdit()
         self.provinciaEnteRilascioEdit = QLineEdit()
+        self.provinciaEnteRilascioEdit.setMaximumWidth(60)
         self.dataRilascioEdit = QLineEdit()
         self.numeroPortoArmiEdit = QLineEdit()
+
+        # Luogo detenzione
         self.tipoLuogoDetenzioneEdit = QLineEdit()
         self.comuneDetenzioneEdit = QLineEdit()
         self.siglaProvinciaDetenzioneEdit = QLineEdit()
+        self.siglaProvinciaDetenzioneEdit.setMaximumWidth(60)
         self.tipoViaDetenzioneEdit = QLineEdit()
+        self.tipoViaDetenzioneEdit.setMaximumWidth(100)
         self.viaDetenzioneEdit = QLineEdit()
         self.civicoDetenzioneEdit = QLineEdit()
+        self.civicoDetenzioneEdit.setMaximumWidth(80)
+
+        # Documento identità
         self.tipoDocumentoEdit = QLineEdit()
         self.numeroDocumentoEdit = QLineEdit()
         self.dataRilascioDocumentoEdit = QLineEdit()
         self.enteRilascioDocumentoEdit = QLineEdit()
         self.comuneEnteRilascioDocumentoEdit = QLineEdit()
-        layout_documenti.addRow("Fascicolo Personale:", self.fascicoloPersonaleEdit)
-        layout_documenti.addRow("Tipologia Titolo:", self.tipologiaTitoloEdit)
-        layout_documenti.addRow("Ente Rilascio:", self.enteRilascioEdit)
-        layout_documenti.addRow("Provincia Ente Rilascio:", self.provinciaEnteRilascioEdit)
-        layout_documenti.addRow("Data Rilascio:", self.dataRilascioEdit)
-        layout_documenti.addRow("Numero Porto Armi:", self.numeroPortoArmiEdit)
-        layout_documenti.addRow("Tipo Luogo Detenzione:", self.tipoLuogoDetenzioneEdit)
-        layout_documenti.addRow("Comune Detenzione:", self.comuneDetenzioneEdit)
-        layout_documenti.addRow("Sigla Provincia Detenzione:", self.siglaProvinciaDetenzioneEdit)
-        layout_documenti.addRow("Tipo Via Detenzione:", self.tipoViaDetenzioneEdit)
-        layout_documenti.addRow("Via Detenzione:", self.viaDetenzioneEdit)
-        layout_documenti.addRow("Civico Detenzione:", self.civicoDetenzioneEdit)
-        layout_documenti.addRow("Tipo Documento:", self.tipoDocumentoEdit)
-        layout_documenti.addRow("Numero Documento:", self.numeroDocumentoEdit)
-        layout_documenti.addRow("Data Rilascio Documento:", self.dataRilascioDocumentoEdit)
-        layout_documenti.addRow("Ente Rilascio Documento:", self.enteRilascioDocumentoEdit)
-        layout_documenti.addRow("Comune Ente Rilascio Documento:", self.comuneEnteRilascioDocumentoEdit)
-        group_documenti.setLayout(layout_documenti)
-        documenti_layout.addWidget(group_documenti)
-        tab_documenti.setLayout(documenti_layout)
 
-        # Tab 3: Armi associate
-        tab_armi = QWidget()
-        armi_layout = QVBoxLayout()
+    def create_license_group(self):
+        """Crea il gruppo per licenza e fascicolo"""
+        group_license = QGroupBox("Licenza e Fascicolo")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Fascicolo Personale:"), 0, 0)
+        grid.addWidget(self.fascicoloPersonaleEdit, 0, 1)
+        grid.addWidget(QLabel("Tipologia Titolo:"), 0, 2)
+        grid.addWidget(self.tipologiaTitoloEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Ente Rilascio:"), 1, 0)
+        grid.addWidget(self.enteRilascioEdit, 1, 1)
+        grid.addWidget(QLabel("Provincia Ente:"), 1, 2)
+        grid.addWidget(self.provinciaEnteRilascioEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Data Rilascio:"), 2, 0)
+        grid.addWidget(self.dataRilascioEdit, 2, 1)
+        grid.addWidget(QLabel("Numero Porto Armi:"), 2, 2)
+        grid.addWidget(self.numeroPortoArmiEdit, 2, 3)
+
+        group_license.setLayout(grid)
+        return group_license
+
+    def create_detention_group(self):
+        """Crea il gruppo per il luogo di detenzione"""
+        group_detention = QGroupBox("Luogo di Detenzione")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Tipo Luogo:"), 0, 0)
+        grid.addWidget(self.tipoLuogoDetenzioneEdit, 0, 1)
+        grid.addWidget(QLabel("Comune:"), 0, 2)
+        grid.addWidget(self.comuneDetenzioneEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Provincia:"), 1, 0)
+        grid.addWidget(self.siglaProvinciaDetenzioneEdit, 1, 1)
+        grid.addWidget(QLabel("Tipo Via:"), 1, 2)
+        grid.addWidget(self.tipoViaDetenzioneEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Via:"), 2, 0)
+        grid.addWidget(self.viaDetenzioneEdit, 2, 1, 1, 2)
+        grid.addWidget(QLabel("Civico:"), 2, 3)
+        grid.addWidget(self.civicoDetenzioneEdit, 2, 4)
+
+        group_detention.setLayout(grid)
+        return group_detention
+
+    def create_document_group(self):
+        """Crea il gruppo per il documento di identità"""
+        group_document = QGroupBox("Documento di Identità")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Tipo Documento:"), 0, 0)
+        grid.addWidget(self.tipoDocumentoEdit, 0, 1)
+        grid.addWidget(QLabel("Numero:"), 0, 2)
+        grid.addWidget(self.numeroDocumentoEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Data Rilascio:"), 1, 0)
+        grid.addWidget(self.dataRilascioDocumentoEdit, 1, 1)
+        grid.addWidget(QLabel("Ente Rilascio:"), 1, 2)
+        grid.addWidget(self.enteRilascioDocumentoEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Comune Ente:"), 2, 0)
+        grid.addWidget(self.comuneEnteRilascioDocumentoEdit, 2, 1, 1, 3)
+
+        group_document.setLayout(grid)
+        return group_document
+
+    def create_armi_tab(self):
+        """Crea la tab per le armi associate"""
+        self.tab_armi = QWidget()
+        main_layout = QVBoxLayout()
+
+        # Creazione tabella armi
         group_armi = QGroupBox("Armi del Detentore")
-        layout_armi = QVBoxLayout()
+        table_layout = QVBoxLayout()
+
         self.armiTable = QTableWidget()
         self.armiTable.setColumnCount(3)
         self.armiTable.setHorizontalHeaderLabels(["Marca", "Modello", "Matricola"])
         self.armiTable.horizontalHeader().setStretchLastSection(True)
-        layout_armi.addWidget(self.armiTable)
-        group_armi.setLayout(layout_armi)
-        armi_layout.addWidget(group_armi)
-        if detentore_data:
-            self.populate_fields(detentore_data)
-        self.carica_armi()
-        # Connetti il double-click per modificare l'arma (usando il QTableWidget)
-        self.armiTable.cellDoubleClicked.connect(self.modifica_arma)
-        tab_armi.setLayout(armi_layout)
+        self.armiTable.setSelectionBehavior(QTableWidget.SelectRows)
+        self.armiTable.setEditTriggers(QTableWidget.NoEditTriggers)
 
+        table_layout.addWidget(self.armiTable)
+        group_armi.setLayout(table_layout)
 
         # Pulsanti per gestire le armi
-        btn_armi_layout = QHBoxLayout()
+        btn_layout = QHBoxLayout()
         self.btnInserisciArma = QPushButton("Inserisci Arma")
+        self.btnInserisciArma.setMinimumWidth(140)
         self.btnModificaArma = QPushButton("Modifica Arma")
+        self.btnModificaArma.setMinimumWidth(140)
         self.btnCancellaArma = QPushButton("Cancella Arma")
-        btn_armi_layout.addWidget(self.btnInserisciArma)
-        btn_armi_layout.addWidget(self.btnModificaArma)
-        btn_armi_layout.addWidget(self.btnCancellaArma)
-        armi_layout.addLayout(btn_armi_layout)
-        tab_armi.setLayout(armi_layout)
+        self.btnCancellaArma.setMinimumWidth(140)
 
-        # Aggiungo tutti i tab al QTabWidget
-        tab_widget.addTab(tab_dati, "Detentore")
-        tab_widget.addTab(tab_documenti, "Documenti")
-        tab_widget.addTab(tab_armi, "Armi")
+        btn_layout.addWidget(self.btnInserisciArma)
+        btn_layout.addWidget(self.btnModificaArma)
+        btn_layout.addWidget(self.btnCancellaArma)
+        btn_layout.addStretch(1)
 
-        # Aggiungo il QTabWidget al layout principale
-        main_layout.addWidget(tab_widget)
+        main_layout.addWidget(group_armi)
+        main_layout.addLayout(btn_layout)
+        main_layout.addStretch(1)
 
-        # Dopo aver aggiunto il QTabWidget, creo il layout per i pulsanti del detentore
-        button_layout = QHBoxLayout()
+        self.tab_armi.setLayout(main_layout)
+
+    def create_main_buttons(self):
+        """Crea i pulsanti principali"""
+        self.button_layout = QHBoxLayout()
+
         self.btnSaveDetentore = QPushButton("Salva Detentore")
+        self.btnSaveDetentore.setMinimumWidth(140)
         self.btnUpdateDetentore = QPushButton("Aggiorna Detentore")
+        self.btnUpdateDetentore.setMinimumWidth(140)
         self.btnDeleteDetentore = QPushButton("Elimina Detentore")
-        button_layout.addWidget(self.btnSaveDetentore)
-        button_layout.addWidget(self.btnUpdateDetentore)
-        button_layout.addWidget(self.btnDeleteDetentore)
-        main_layout.addLayout(button_layout)
+        self.btnDeleteDetentore.setMinimumWidth(140)
+
+        self.button_layout.addWidget(self.btnSaveDetentore)
+        self.button_layout.addWidget(self.btnUpdateDetentore)
+        self.button_layout.addWidget(self.btnDeleteDetentore)
+        self.button_layout.addStretch(1)
+
+    def connect_signals(self):
+        """Collega i segnali agli slot"""
+        # Segnali per i pulsanti principali
         self.btnSaveDetentore.clicked.connect(self.save_detentore)
         self.btnUpdateDetentore.clicked.connect(self.save_detentore)
+        self.btnDeleteDetentore.clicked.connect(self.delete_detentore)
 
-        self.setLayout(main_layout)
-
-        # Collego i pulsanti per le armi
+        # Segnali per i pulsanti delle armi
         self.btnInserisciArma.clicked.connect(self.inserisci_arma)
-        self.btnModificaArma.clicked.connect(self.modifica_arma)
-        # Collego il doppio click sugli elementi della listbox
+        self.btnModificaArma.clicked.connect(self.modifica_arma_selected)
         self.btnCancellaArma.clicked.connect(self.cancella_arma)
 
+        # Segnali per gli altri controlli
+        self.luogoNascitaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_nascita)
+        self.comuneResidenzaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_residenza)
+        self.btnCalcolaCF.clicked.connect(self.calcola_codice_fiscale)
 
-        # Se vengono passati dati, precompila i campi
-        if detentore_data:
-            self.populate_fields(detentore_data)
-        convert_all_lineedits_to_uppercase(self)
+        # Double click su tabella
+        self.armiTable.cellDoubleClicked.connect(self.modifica_arma)
+
     def populate_fields(self, data):
+        """Popola i campi con i dati esistenti"""
         self.nomeEdit.setText(data.get('nome', ''))
         self.cognomeEdit.setText(data.get('cognome', ''))
         self.dataNascitaEdit.setText(data.get('dataNascita', ''))
+
         if data.get('luogoNascita'):
             index = self.luogoNascitaCombo.findText(data.get('luogoNascita'), Qt.MatchFixedString)
             if index >= 0:
                 self.luogoNascitaCombo.setCurrentIndex(index)
             else:
                 self.luogoNascitaCombo.setEditText(data.get('luogoNascita'))
+
         self.siglaProvinciaNascitaEdit.setText(data.get('siglaProvinciaNascita', ''))
         self.sessoEdit.setText(data.get('sesso', ''))
         self.codiceFiscaleEdit.setText(data.get('codiceFiscale', ''))
+
         if data.get('comuneResidenza'):
             index = self.comuneResidenzaCombo.findText(data.get('comuneResidenza'), Qt.MatchFixedString)
             if index >= 0:
                 self.comuneResidenzaCombo.setCurrentIndex(index)
             else:
                 self.comuneResidenzaCombo.setEditText(data.get('comuneResidenza'))
+
         self.siglaProvinciaResidenzaEdit.setText(data.get('siglaProvinciaResidenza', ''))
         self.tipoViaEdit.setText(data.get('tipoVia', ''))
         self.viaEdit.setText(data.get('via', ''))
@@ -233,20 +436,21 @@ class InserisciDetentoreDialog(QDialog):
         self.dataRilascioDocumentoEdit.setText(data.get('dataRilascioDocumento', ''))
         self.enteRilascioDocumentoEdit.setText(data.get('enteRilascioDocumento', ''))
         self.comuneEnteRilascioDocumentoEdit.setText(data.get('comuneEnteRilascioDocumento', ''))
+
     def save_detentore(self):
+        """Salva o aggiorna i dati del detentore"""
         print("Salvataggio record Detentore in corso...")
         conn = sqlite3.connect("gestione_armi.db")
         cursor = conn.cursor()
-        # Raccogliamo i dati dai campi
+
+        # Raccolta dati dai campi
         nome = self.nomeEdit.text()
         cognome = self.cognomeEdit.text()
         dataNascita = self.dataNascitaEdit.text()
-        # Usa currentText() per la combo
         luogoNascita = self.luogoNascitaCombo.currentText()
         siglaProvinciaNascita = self.siglaProvinciaNascitaEdit.text()
         sesso = self.sessoEdit.text()
         codiceFiscale = self.codiceFiscaleEdit.text()
-        # Per Comune Residenza usa currentText()
         comuneResidenza = self.comuneResidenzaCombo.currentText()
         siglaProvinciaResidenza = self.siglaProvinciaResidenzaEdit.text()
         tipoVia = self.tipoViaEdit.text()
@@ -271,85 +475,153 @@ class InserisciDetentoreDialog(QDialog):
         enteRilascioDocumento = self.enteRilascioDocumentoEdit.text()
         comuneEnteRilascioDocumento = self.comuneEnteRilascioDocumentoEdit.text()
 
-        if self.detentore_data and self.detentore_data.get('id'):
-            # UPDATE record esistente
-            cursor.execute("""
-                UPDATE detentori
-                SET Nome=?, Cognome=?, FascicoloPersonale=?, DataNascita=?, LuogoNascita=?, SiglaProvinciaNascita=?,
-                    Sesso=?, CodiceFiscale=?, ComuneResidenza=?, SiglaProvinciaResidenza=?, TipoVia=?, Via=?, Civico=?, Telefono=?,
-                    TipologiaTitolo=?, EnteRilascio=?, ProvinciaEnteRilascio=?, DataRilascio=?, NumeroPortoArmi=?, TipoLuogoDetenzione=?,
-                    ComuneDetenzione=?, SiglaProvinciaDetenzione=?, TipoViaDetenzione=?, ViaDetenzione=?, CivicoDetenzione=?,
-                    TipoDocumento=?, NumeroDocumento=?, DataRilascioDocumento=?, EnteRilascioDocumento=?, ComuneEnteRilascioDocumento=?
-                WHERE ID_Detentore=?
-            """, (
-            nome, cognome, fascicoloPersonale, dataNascita, luogoNascita, siglaProvinciaNascita, sesso, codiceFiscale,
-            comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono, tipologiaTitolo, enteRilascio,
-            provinciaEnteRilascio, dataRilascio, numeroPortoArmi, tipoLuogoDetenzione, comuneDetenzione,
-            siglaProvinciaDetenzione,
-            tipoViaDetenzione, viaDetenzione, civicoDetenzione, tipoDocumento, numeroDocumento, dataRilascioDocumento,
-            enteRilascioDocumento, comuneEnteRilascioDocumento, self.detentore_data.get('id')))
+        try:
+            if self.detentore_data and self.detentore_data.get('id'):
+                # UPDATE record esistente
+                cursor.execute("""
+                    UPDATE detentori
+                    SET Nome=?, Cognome=?, FascicoloPersonale=?, DataNascita=?, LuogoNascita=?, SiglaProvinciaNascita=?,
+                        Sesso=?, CodiceFiscale=?, ComuneResidenza=?, SiglaProvinciaResidenza=?, TipoVia=?, Via=?, Civico=?, Telefono=?,
+                        TipologiaTitolo=?, EnteRilascio=?, ProvinciaEnteRilascio=?, DataRilascio=?, NumeroPortoArmi=?, TipoLuogoDetenzione=?,
+                        ComuneDetenzione=?, SiglaProvinciaDetenzione=?, TipoViaDetenzione=?, ViaDetenzione=?, CivicoDetenzione=?,
+                        TipoDocumento=?, NumeroDocumento=?, DataRilascioDocumento=?, EnteRilascioDocumento=?, ComuneEnteRilascioDocumento=?
+                    WHERE ID_Detentore=?
+                """, (
+                    nome, cognome, fascicoloPersonale, dataNascita, luogoNascita, siglaProvinciaNascita, sesso,
+                    codiceFiscale,
+                    comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono, tipologiaTitolo,
+                    enteRilascio,
+                    provinciaEnteRilascio, dataRilascio, numeroPortoArmi, tipoLuogoDetenzione, comuneDetenzione,
+                    siglaProvinciaDetenzione,
+                    tipoViaDetenzione, viaDetenzione, civicoDetenzione, tipoDocumento, numeroDocumento,
+                    dataRilascioDocumento,
+                    enteRilascioDocumento, comuneEnteRilascioDocumento, self.detentore_data.get('id')))
+
+                QMessageBox.information(self, "Successo", "Detentore aggiornato con successo!")
+            else:
+                # INSERT nuovo record
+                cursor.execute("""
+                    INSERT INTO detentori (Nome, Cognome, FascicoloPersonale, DataNascita, LuogoNascita, SiglaProvinciaNascita,
+                        Sesso, CodiceFiscale, ComuneResidenza, SiglaProvinciaResidenza, TipoVia, Via, Civico, Telefono,
+                        TipologiaTitolo, EnteRilascio, ProvinciaEnteRilascio, DataRilascio, NumeroPortoArmi, TipoLuogoDetenzione,
+                        ComuneDetenzione, SiglaProvinciaDetenzione, TipoViaDetenzione, ViaDetenzione, CivicoDetenzione,
+                        TipoDocumento, NumeroDocumento, DataRilascioDocumento, EnteRilascioDocumento, ComuneEnteRilascioDocumento)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    nome, cognome, fascicoloPersonale, dataNascita, luogoNascita, siglaProvinciaNascita, sesso,
+                    codiceFiscale,
+                    comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono, tipologiaTitolo,
+                    enteRilascio,
+                    provinciaEnteRilascio, dataRilascio, numeroPortoArmi, tipoLuogoDetenzione, comuneDetenzione,
+                    siglaProvinciaDetenzione,
+                    tipoViaDetenzione, viaDetenzione, civicoDetenzione, tipoDocumento, numeroDocumento,
+                    dataRilascioDocumento,
+                    enteRilascioDocumento, comuneEnteRilascioDocumento))
+
+                QMessageBox.information(self, "Successo", "Nuovo detentore salvato con successo!")
+
+            conn.commit()
+            self.accept()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante il salvataggio: {str(e)}")
+        finally:
+            conn.close()
+
+    def delete_detentore(self):
+        """Elimina il detentore dal database"""
+        if not self.detentore_data or not self.detentore_data.get('id'):
+            QMessageBox.warning(self, "Attenzione", "Nessun detentore da eliminare.")
+            return
+
+        # Conferma eliminazione
+        reply = QMessageBox.question(self, "Conferma eliminazione",
+                                     "Sei sicuro di voler eliminare questo detentore?\nTutte le armi associate verranno eliminate.",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            try:
+                conn = sqlite3.connect("gestione_armi.db")
+                cursor = conn.cursor()
+
+                # Elimina prima le armi associate
+                cursor.execute("DELETE FROM armi WHERE ID_Detentore = ?", (self.detentore_data.get('id'),))
+
+                # Poi elimina il detentore
+                cursor.execute("DELETE FROM detentori WHERE ID_Detentore = ?", (self.detentore_data.get('id'),))
+
+                conn.commit()
+                QMessageBox.information(self, "Successo", "Detentore e armi associate eliminati con successo!")
+                self.accept()
+            except Exception as e:
+                QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante l'eliminazione: {str(e)}")
+            finally:
+                conn.close()
+
+    def modifica_arma_selected(self):
+        """Modifica l'arma selezionata nella tabella"""
+        row = self.armiTable.currentRow()
+        if row >= 0:
+            self.modifica_arma(row, 0)
         else:
-            # INSERT nuovo record
-            cursor.execute("""
-                INSERT INTO detentori (Nome, Cognome, FascicoloPersonale, DataNascita, LuogoNascita, SiglaProvinciaNascita,
-                    Sesso, CodiceFiscale, ComuneResidenza, SiglaProvinciaResidenza, TipoVia, Via, Civico, Telefono,
-                    TipologiaTitolo, EnteRilascio, ProvinciaEnteRilascio, DataRilascio, NumeroPortoArmi, TipoLuogoDetenzione,
-                    ComuneDetenzione, SiglaProvinciaDetenzione, TipoViaDetenzione, ViaDetenzione, CivicoDetenzione,
-                    TipoDocumento, NumeroDocumento, DataRilascioDocumento, EnteRilascioDocumento, ComuneEnteRilascioDocumento)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-            nome, cognome, fascicoloPersonale, dataNascita, luogoNascita, siglaProvinciaNascita, sesso, codiceFiscale,
-            comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono, tipologiaTitolo, enteRilascio,
-            provinciaEnteRilascio, dataRilascio, numeroPortoArmi, tipoLuogoDetenzione, comuneDetenzione,
-            siglaProvinciaDetenzione,
-            tipoViaDetenzione, viaDetenzione, civicoDetenzione, tipoDocumento, numeroDocumento, dataRilascioDocumento,
-            enteRilascioDocumento, comuneEnteRilascioDocumento))
-        conn.commit()
-        conn.close()
-        self.accept()
+            QMessageBox.warning(self, "Attenzione", "Seleziona prima un'arma da modificare.")
 
     def modifica_arma(self, row, column):
+        """Apre la finestra di dialogo per modificare un'arma"""
         from PyQt5.QtWidgets import QDialog
+
         # Recupera l'ID dell'arma dal primo item della riga
         id_item = self.armiTable.item(row, 0)
         if id_item:
             arma_id = id_item.data(Qt.UserRole)
-            import sqlite3
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
-            row_data = cursor.fetchone()
-            conn.close()
-            if row_data:
-                columns = ["ID_ArmaDetenuta", "ID_Detentore", "TipoArma", "MarcaArma", "ModelloArma", "TipologiaArma",
-                           "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna", "NumeroCanne",
-                           "ArmaLungaCorta",
-                           "TipoCanna", "CategoriaArma", "FunzionamentoArma", "CaricamentoArma", "PunzoniArma",
-                           "StatoProduzioneArma", "ExOrdDem", "TipoMunizioni", "QuantitaMunizioni", "TipoBossolo",
-                           "TipoCedente", "NoteArma", "CognomeCedente", "NomeCedente", "DataNascitaCedente",
-                           "LuogoNascitaCedente", "SiglaProvinciaResidenzaCedente", "ComuneResidenzaCedente",
-                           "SiglaProvinciaNascitaCedente", "TipoViaResidenzaCedente", "IndirizzoResidenzaCedente",
-                           "CivicoResidenzaCedente", "TelefonoCedente"]
-                arma_data = dict(zip(columns, row_data))
-                from ArmiDialog import ArmaDialog
-                det_id = self.detentore_data.get('id') if self.detentore_data else None
-                dialog = ArmaDialog(arma_data=arma_data, detentore_id=det_id)
-                if dialog.exec_() == QDialog.Accepted:
-                    self.carica_armi()
+
+            try:
+                conn = sqlite3.connect("gestione_armi.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
+                row_data = cursor.fetchone()
+                conn.close()
+
+                if row_data:
+                    columns = ["ID_ArmaDetenuta", "ID_Detentore", "TipoArma", "MarcaArma", "ModelloArma",
+                               "TipologiaArma",
+                               "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna", "NumeroCanne",
+                               "ArmaLungaCorta", "TipoCanna", "CategoriaArma", "FunzionamentoArma", "CaricamentoArma",
+                               "PunzoniArma", "StatoProduzioneArma", "ExOrdDem", "TipoMunizioni", "QuantitaMunizioni",
+                               "TipoBossolo", "TipoCedente", "NoteArma", "CognomeCedente", "NomeCedente",
+                               "DataNascitaCedente", "LuogoNascitaCedente", "SiglaProvinciaResidenzaCedente",
+                               "ComuneResidenzaCedente", "SiglaProvinciaNascitaCedente", "TipoViaResidenzaCedente",
+                               "IndirizzoResidenzaCedente", "CivicoResidenzaCedente", "TelefonoCedente"]
+
+                    arma_data = dict(zip(columns, row_data))
+
+                    from ArmiDialog import ArmaDialog
+                    det_id = self.detentore_data.get('id') if self.detentore_data else None
+                    dialog = ArmaDialog(arma_data=arma_data, detentore_id=det_id)
+                    if dialog.exec_() == QDialog.Accepted:
+                        self.carica_armi()
+
+            except Exception as e:
+                QMessageBox.critical(self, "Errore", f"Errore durante il caricamento dell'arma: {str(e)}")
 
     def carica_armi(self):
-        import sqlite3
-        from PyQt5.QtWidgets import QTableWidgetItem
-        from PyQt5.QtCore import Qt
+        """Carica le armi del detentore nella tabella"""
+        if not self.detentore_data or not self.detentore_data.get('id'):
+            self.armiTable.setRowCount(0)
+            return
 
-        conn = sqlite3.connect("gestione_armi.db")
-        cursor = conn.cursor()
-        if self.detentore_data and self.detentore_data.get('id'):
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
             det_id = self.detentore_data.get('id')
-            cursor.execute("SELECT ID_ArmaDetenuta, MarcaArma, ModelloArma, Matricola FROM armi WHERE ID_Detentore = ?",
-                           (det_id,))
+            cursor.execute("""
+                SELECT ID_ArmaDetenuta, MarcaArma, ModelloArma, Matricola 
+                FROM armi 
+                WHERE ID_Detentore = ?
+                ORDER BY MarcaArma, ModelloArma
+            """, (det_id,))
+
             rows = cursor.fetchall()
-            conn.close()
 
             self.armiTable.setRowCount(len(rows))
             for row_index, row in enumerate(rows):
@@ -368,55 +640,84 @@ class InserisciDetentoreDialog(QDialog):
                 self.armiTable.setItem(row_index, 0, marca_item)
                 self.armiTable.setItem(row_index, 1, modello_item)
                 self.armiTable.setItem(row_index, 2, matricola_item)
-        else:
-            self.armiTable.setRowCount(0)
-        conn.close()
+
+            # Adatta le dimensioni delle colonne al contenuto
+            self.armiTable.resizeColumnsToContents()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore nel caricamento delle armi: {str(e)}")
+        finally:
+            conn.close()
 
     def inserisci_arma(self):
+        """Inserisce una nuova arma per il detentore"""
+        if not self.detentore_data or not self.detentore_data.get('id'):
+            QMessageBox.warning(self, "Attenzione",
+                                "È necessario salvare il detentore prima di poter inserire un'arma.")
+            return
+
         from ArmiDialog import ArmaDialog
-        det_id = self.detentore_data.get('id') if self.detentore_data else None
+        det_id = self.detentore_data.get('id')
         dialog = ArmaDialog(arma_data=None, detentore_id=det_id)
         if dialog.exec_() == QDialog.Accepted:
             self.carica_armi()
 
     def cancella_arma(self):
-        # Ottieni la riga selezionata nella tabella
+        """Elimina l'arma selezionata"""
         row = self.armiTable.currentRow()
         if row < 0:
-            return  # Nessuna riga selezionata
-        # Recupera l'ID dell'arma dal primo item della riga (salvato in Qt.UserRole)
+            QMessageBox.warning(self, "Attenzione", "Seleziona prima un'arma da eliminare.")
+            return
+
+        # Recupera l'ID dell'arma dal primo item della riga
         item = self.armiTable.item(row, 0)
         if item is None:
             return
+
         arma_id = item.data(Qt.UserRole)
-        import sqlite3
-        conn = sqlite3.connect("gestione_armi.db")
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
-        conn.commit()
-        conn.close()
-        # Ricarica la tabella per aggiornare la visualizzazione
-        self.carica_armi()
+
+        # Conferma eliminazione
+        reply = QMessageBox.question(self, "Conferma eliminazione",
+                                     "Sei sicuro di voler eliminare questa arma?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            try:
+                conn = sqlite3.connect("gestione_armi.db")
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
+                conn.commit()
+                conn.close()
+                # Ricarica la tabella
+                self.carica_armi()
+                QMessageBox.information(self, "Successo", "Arma eliminata con successo!")
+            except Exception as e:
+                QMessageBox.critical(self, "Errore", f"Errore durante l'eliminazione dell'arma: {str(e)}")
 
     def update_sigla_provincia_nascita(self):
+        """Aggiorna la sigla provincia di nascita in base al comune selezionato"""
         comune = self.luogoNascitaCombo.currentText()
         if not comune:
             self.siglaProvinciaNascitaEdit.clear()
             return
+
         sigla = get_sigla_provincia(comune)
         self.siglaProvinciaNascitaEdit.setText(sigla)
+
     def update_sigla_provincia_residenza(self):
-        # Ottieni il comune selezionato dalla combo (già in maiuscolo se lo hai caricato così)
+        """Aggiorna la sigla provincia di residenza in base al comune selezionato"""
         comune = self.comuneResidenzaCombo.currentText()
         if not comune:
             self.siglaProvinciaResidenzaEdit.clear()
             return
-        # Richiama la funzione globale per ottenere la sigla della provincia
-        from Utility import get_sigla_provincia
+
         sigla = get_sigla_provincia(comune)
         self.siglaProvinciaResidenzaEdit.setText(sigla)
+
     def calcola_codice_fiscale(self):
+        """Calcola il codice fiscale in base ai dati inseriti"""
         from Utility import compute_codice_fiscale
+
         # Recupera i dati necessari
         nome = self.nomeEdit.text().strip()
         cognome = self.cognomeEdit.text().strip()
@@ -425,19 +726,19 @@ class InserisciDetentoreDialog(QDialog):
         comune_nascita = self.luogoNascitaCombo.currentText().strip()
 
         if not (nome and cognome and data_nascita and sesso and comune_nascita):
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "Dati mancanti", "Inserisci nome, cognome, data di nascita, sesso e comune di nascita.")
+            QMessageBox.warning(self, "Dati mancanti",
+                                "Inserisci nome, cognome, data di nascita, sesso e comune di nascita.")
             return
 
         try:
             cf = compute_codice_fiscale(nome, cognome, data_nascita, sesso, comune_nascita)
             self.codiceFiscaleEdit.setText(cf)
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
             QMessageBox.critical(self, "Errore", f"Impossibile calcolare il codice fiscale:\n{e}")
 
 
 def load_comuni():
+    """Carica la lista dei comuni dal database"""
     try:
         conn = sqlite3.connect("gestione_armi.db")
         cursor = conn.cursor()
@@ -466,9 +767,11 @@ class TestWidget(QWidget):
         layout.addWidget(self.combo)
         self.setLayout(layout)
 
+
 if __name__ == "__main__":
     import sys
     from PyQt5.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
     dialog = InserisciDetentoreDialog()
     dialog.exec_()
