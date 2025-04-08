@@ -2,8 +2,9 @@ import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
     QGroupBox, QPushButton, QHBoxLayout, QGridLayout, QScrollArea,
-    QLabel, QSizePolicy, QComboBox, QMessageBox, QInputDialog
+    QLabel, QSizePolicy, QComboBox, QMessageBox, QInputDialog, QDateEdit,
 )
+from PyQt5.QtCore import QDate, Qt
 from Utility import convert_all_lineedits_to_uppercase
 from TransferimentoDialog import TransferimentoDialog
 
@@ -79,7 +80,10 @@ class ArmaDialog(QDialog):
     def _create_arma_tab(self):
         """Crea la tab con i dettagli dell'arma"""
         self.tab_arma = QWidget()
-        self.dataAcquistoEdit = QLineEdit()
+        self.dataAcquistoEdit = QDateEdit()
+        self.dataAcquistoEdit.setCalendarPopup(True)  # Abilita il popup del calendario
+        self.dataAcquistoEdit.setDisplayFormat("dd/MM/yyyy")  # Formato italiano
+        self.dataAcquistoEdit.setDate(QDate.currentDate())  # Data predefinita
 
         # Creazione dei campi di testo e combobox
         # Tipo Arma - ComboBox
@@ -359,7 +363,11 @@ class ArmaDialog(QDialog):
         # Creazione dei campi di testo
         self.cognomeCedenteEdit = QLineEdit()
         self.nomeCedenteEdit = QLineEdit()
-        self.dataNascitaCedenteEdit = QLineEdit()
+        self.dataNascitaCedenteEdit = QDateEdit()
+        self.dataNascitaCedenteEdit.setCalendarPopup(True)
+        self.dataNascitaCedenteEdit.setDisplayFormat("dd/MM/yyyy")
+        # Impostare una data predefinita ragionevole, ad esempio 18 anni fa
+        self.dataNascitaCedenteEdit.setDate(QDate.currentDate().addYears(-18))
         self.luogoNascitaCedenteEdit = QLineEdit()
         self.siglaProvinciaResidenzaCedenteEdit = QLineEdit()
         self.comuneResidenzaCedenteEdit = QLineEdit()
@@ -620,6 +628,27 @@ class ArmaDialog(QDialog):
         self.civicoResidenzaCedenteEdit.setText(data.get('CivicoResidenzaCedente', ''))
         self.telefonoCedenteEdit.setText(data.get('TelefonoCedente', ''))
 
+        # Per i campi data
+        if 'DataAcquisto' in data and data['DataAcquisto']:
+            try:
+                date_parts = data['DataAcquisto'].split('/')
+                if len(date_parts) == 3:
+                    day, month, year = map(int, date_parts)
+                    self.dataAcquistoEdit.setDate(QDate(year, month, day))
+            except (ValueError, IndexError):
+                # In caso di errore nel parsing della data
+                self.dataAcquistoEdit.setDate(QDate.currentDate())
+
+        if 'DataNascitaCedente' in data and data['DataNascitaCedente']:
+            try:
+                date_parts = data['DataNascitaCedente'].split('/')
+                if len(date_parts) == 3:
+                    day, month, year = map(int, date_parts)
+                    self.dataNascitaCedenteEdit.setDate(QDate(year, month, day))
+            except (ValueError, IndexError):
+                # In caso di errore nel parsing
+                self.dataNascitaCedenteEdit.setDate(QDate.currentDate().addYears(-18))
+
         # Prova a impostare esplicitamente il campo DataAcquisto
         data_acquisto = data.get('DataAcquisto', '')
         print(f"DEBUG - Impostazione dataAcquistoEdit: {data_acquisto}")
@@ -717,6 +746,9 @@ class ArmaDialog(QDialog):
             # Verifica se la marca è nuova e chiedi di aggiungerla
             self.check_and_add_new_marca()
 
+            if not self.validate_dates():
+                return  # Interrompi il salvataggio se la validazione fallisce
+
             # Verifica che almeno l'ID del detentore sia valorizzato per un nuovo inserimento
             if self.arma_data is None and self.detentore_id is None:
                 raise ValueError("ID_Detentore non valorizzato. Impossibile salvare l'arma.")
@@ -759,6 +791,10 @@ class ArmaDialog(QDialog):
             civicoResidenzaCedente = self.civicoResidenzaCedenteEdit.text()
             telefonoCedente = self.telefonoCedenteEdit.text()
             dataAcquisto = self.dataAcquistoEdit.text()  # Corretto riferimento al campo DataAcquisto
+
+            # Ottieni le date formattate
+            dataAcquisto = self.dataAcquistoEdit.date().toString("dd/MM/yyyy")
+            dataNascitaCedente = self.dataNascitaCedenteEdit.date().toString("dd/MM/yyyy")
 
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
                 # UPDATE per la modifica
@@ -851,6 +887,23 @@ class ArmaDialog(QDialog):
         except Exception as e:
             print("Errore nel trasferimento dell'arma:", e)
 
+
+    def validate_dates(self):
+        """Valida che le date inserite siano coerenti"""
+        current_date = QDate.currentDate()
+
+        # Controlla che la data di acquisto non sia nel futuro
+        if self.dataAcquistoEdit.date() > current_date:
+            QMessageBox.warning(self, "Errore Data", "La data di acquisto non può essere nel futuro.")
+            return False
+
+        # Controlla che la data di nascita del cedente sia valida (ad es. età minima 18 anni)
+        min_birth_date = current_date.addYears(-18)
+        if self.dataNascitaCedenteEdit.date() > min_birth_date:
+            QMessageBox.warning(self, "Errore Data", "Il cedente deve avere almeno 18 anni.")
+            return False
+
+        return True
 
 if __name__ == "__main__":
     import sys
