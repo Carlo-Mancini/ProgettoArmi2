@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
 )
 from Utility import convert_all_lineedits_to_uppercase
 from PyQt5.QtCore import Qt
-from Utility import get_sigla_provincia
+from Utility import get_sigla_provincia, DateInputWidget
 
 
 class InserisciDetentoreDialog(QDialog):
@@ -77,7 +77,10 @@ class InserisciDetentoreDialog(QDialog):
         """Crea i widget per i dati personali"""
         self.nomeEdit = QLineEdit()
         self.cognomeEdit = QLineEdit()
-        self.dataNascitaEdit = QLineEdit()
+
+        # Sostituisci QLineEdit con DateInputWidget per la data di nascita
+        self.dataNascitaEdit = DateInputWidget()
+        self.dataNascitaEdit.setDisplayFormat("dd/MM/yyyy")
 
         # Combo per il luogo di nascita
         self.luogoNascitaCombo = QComboBox()
@@ -218,7 +221,11 @@ class InserisciDetentoreDialog(QDialog):
         self.enteRilascioEdit = QLineEdit()
         self.provinciaEnteRilascioEdit = QLineEdit()
         self.provinciaEnteRilascioEdit.setMaximumWidth(60)
-        self.dataRilascioEdit = QLineEdit()
+
+        # Sostituzione per la data di rilascio
+        self.dataRilascioEdit = DateInputWidget()
+        self.dataRilascioEdit.setDisplayFormat("dd/MM/yyyy")
+
         self.numeroPortoArmiEdit = QLineEdit()
 
         # Luogo detenzione
@@ -235,7 +242,11 @@ class InserisciDetentoreDialog(QDialog):
         # Documento identità
         self.tipoDocumentoEdit = QLineEdit()
         self.numeroDocumentoEdit = QLineEdit()
-        self.dataRilascioDocumentoEdit = QLineEdit()
+
+        # Sostituzione per la data di rilascio documento
+        self.dataRilascioDocumentoEdit = DateInputWidget()
+        self.dataRilascioDocumentoEdit.setDisplayFormat("dd/MM/yyyy")
+
         self.enteRilascioDocumentoEdit = QLineEdit()
         self.comuneEnteRilascioDocumentoEdit = QLineEdit()
 
@@ -394,7 +405,11 @@ class InserisciDetentoreDialog(QDialog):
         """Popola i campi con i dati esistenti"""
         self.nomeEdit.setText(data.get('nome', ''))
         self.cognomeEdit.setText(data.get('cognome', ''))
-        self.dataNascitaEdit.setText(data.get('dataNascita', ''))
+
+        # Imposta la data di nascita con il nuovo widget
+        if data.get('dataNascita'):
+            from PyQt5.QtCore import QDate
+            self.dataNascitaEdit.setDate(QDate.fromString(data.get('dataNascita'), "dd/MM/yyyy"))
 
         if data.get('luogoNascita'):
             index = self.luogoNascitaCombo.findText(data.get('luogoNascita'), Qt.MatchFixedString)
@@ -423,7 +438,12 @@ class InserisciDetentoreDialog(QDialog):
         self.tipologiaTitoloEdit.setText(data.get('tipologiaTitolo', ''))
         self.enteRilascioEdit.setText(data.get('enteRilascio', ''))
         self.provinciaEnteRilascioEdit.setText(data.get('provinciaEnteRilascio', ''))
-        self.dataRilascioEdit.setText(data.get('dataRilascio', ''))
+
+        # Imposta le altre date con i nuovi widget
+        if data.get('dataRilascio'):
+            from PyQt5.QtCore import QDate
+            self.dataRilascioEdit.setDate(QDate.fromString(data.get('dataRilascio'), "dd/MM/yyyy"))
+
         self.numeroPortoArmiEdit.setText(data.get('numeroPortoArmi', ''))
         self.tipoLuogoDetenzioneEdit.setText(data.get('tipoLuogoDetenzione', ''))
         self.comuneDetenzioneEdit.setText(data.get('comuneDetenzione', ''))
@@ -433,7 +453,11 @@ class InserisciDetentoreDialog(QDialog):
         self.civicoDetenzioneEdit.setText(data.get('civicoDetenzione', ''))
         self.tipoDocumentoEdit.setText(data.get('tipoDocumento', ''))
         self.numeroDocumentoEdit.setText(data.get('numeroDocumento', ''))
-        self.dataRilascioDocumentoEdit.setText(data.get('dataRilascioDocumento', ''))
+
+        if data.get('dataRilascioDocumento'):
+            from PyQt5.QtCore import QDate
+            self.dataRilascioDocumentoEdit.setDate(QDate.fromString(data.get('dataRilascioDocumento'), "dd/MM/yyyy"))
+
         self.enteRilascioDocumentoEdit.setText(data.get('enteRilascioDocumento', ''))
         self.comuneEnteRilascioDocumentoEdit.setText(data.get('comuneEnteRilascioDocumento', ''))
 
@@ -721,7 +745,7 @@ class InserisciDetentoreDialog(QDialog):
         # Recupera i dati necessari
         nome = self.nomeEdit.text().strip()
         cognome = self.cognomeEdit.text().strip()
-        data_nascita = self.dataNascitaEdit.text().strip()
+        data_nascita = self.dataNascitaEdit.text().strip()  # Usa il metodo text() del widget personalizzato
         sesso = self.sessoEdit.text().strip()
         comune_nascita = self.luogoNascitaCombo.currentText().strip()
 

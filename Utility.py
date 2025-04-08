@@ -1,3 +1,7 @@
+from PyQt5.QtCore import QDate, Qt, pyqtSignal
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QToolButton, QDateEdit, QCalendarWidget
+from PyQt5.QtGui import QIcon
+
 def convert_all_lineedits_to_uppercase(widget):
     from PyQt5.QtWidgets import QLineEdit
     for lineedit in widget.findChildren(QLineEdit):
@@ -28,7 +32,6 @@ def get_sigla_provincia(comune, db_path="gestione_armi.db"):
         return ""
     finally:
         conn.close()
-
 
 def compute_codice_fiscale(nome, cognome, data_nascita, sesso, comune_nascita, db_path="gestione_armi.db"):
     """
@@ -163,3 +166,210 @@ def cerca_arma_per_matricola(matricola, db_path="gestione_armi.db"):
         return None
     finally:
         conn.close()
+
+
+from PyQt5.QtWidgets import QLineEdit, QCalendarWidget, QToolButton, QHBoxLayout, QWidget
+from PyQt5.QtCore import QDate, Qt, pyqtSignal, QRegExp
+from PyQt5.QtGui import QRegExpValidator
+
+
+class DateInputWidget(QWidget):
+    """
+    Widget personalizzato per l'inserimento di date con formato guidato
+    Mantiene sempre il formato __/__/____ e completa automaticamente
+    """
+
+    dateChanged = pyqtSignal(QDate)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        # Layout orizzontale per contenere i controlli
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Campo di testo per inserimento con maschera
+        self.lineEdit = QLineEdit(self)
+        self._placeholder = "__/__/____"
+        self.lineEdit.setText(self._placeholder)
+
+        # Regole di validazione per accettare solo numeri nelle posizioni corrette
+        self._setupMaskedInput()
+
+        # Pulsante calendario
+        self.calendarButton = QToolButton(self)
+        self.calendarButton.setText("📅")
+        self.calendarButton.setCursor(Qt.PointingHandCursor)
+        self.calendarButton.clicked.connect(self._showCalendar)
+
+        # Widget calendario (inizialmente nascosto)
+        self.calendar = QCalendarWidget(self)
+        self.calendar.setWindowFlags(Qt.Popup)
+        self.calendar.clicked.connect(self._setDateFromCalendar)
+        self.calendar.hide()
+
+        # Aggiunta dei widget al layout
+        layout.addWidget(self.lineEdit)
+        layout.addWidget(self.calendarButton)
+
+        # Formato di visualizzazione predefinito
+        self._displayFormat = "dd/MM/yyyy"
+
+        # Connessione dei segnali
+        self.lineEdit.textEdited.connect(self._onTextEdited)
+
+    def _setupMaskedInput(self):
+        """Configura la maschera di input e gestori eventi per il formato guidato"""
+        # Impostiamo il focus per attivare la gestione avanzata degli input
+        self.lineEdit.setFocusPolicy(Qt.StrongFocus)
+
+        # Colleghiamo i gestori di eventi chiave
+        self.lineEdit.keyPressEvent = self._handleKeyPress
+
+    def _handleKeyPress(self, event):
+        """Gestisce la pressione dei tasti per mantenere il formato __/__/____"""
+        key = event.key()
+        text = self.lineEdit.text()
+        cursor_pos = self.lineEdit.cursorPosition()
+
+        # Gestione backspace - mantiene il formato
+        if key == Qt.Key_Backspace:
+            if cursor_pos > 0:
+                if text[cursor_pos - 1] in '0123456789':
+                    # Sostituisci il numero con un underscore
+                    new_text = text[:cursor_pos - 1] + '_' + text[cursor_pos:]
+                    self.lineEdit.setText(new_text)
+                    self.lineEdit.setCursorPosition(cursor_pos - 1)
+                elif cursor_pos > 1 and text[cursor_pos - 1] in '/' and text[cursor_pos - 2] in '0123456789':
+                    # Se siamo su uno slash, torna indietro e cancella il numero
+                    new_text = text[:cursor_pos - 2] + '_' + text[cursor_pos - 1:]
+                    self.lineEdit.setText(new_text)
+                    self.lineEdit.setCursorPosition(cursor_pos - 2)
+            return
+
+        # Gestione inserimento numeri
+        if key >= Qt.Key_0 and key <= Qt.Key_9:
+            digit = chr(key)
+
+            # Trova la prossima posizione disponibile per un numero
+            valid_positions = [0, 1, 3, 4, 6, 7, 8, 9]
+            current_pos = cursor_pos
+
+            # Se siamo su una posizione valida e c'è un underscore, sostituiscilo
+            if current_pos in valid_positions and text[current_pos] == '_':
+                new_text = text[:current_pos] + digit + text[current_pos + 1:]
+                self.lineEdit.setText(new_text)
+
+                # Se abbiamo inserito il primo o terzo numero, spostiamo automaticamente dopo lo slash
+                if current_pos == 1 or current_pos == 4:
+                    self.lineEdit.setCursorPosition(current_pos + 2)
+                else:
+                    self.lineEdit.setCursorPosition(current_pos + 1)
+
+                # Controlla se la data è valida e segnala il cambiamento
+                self._checkAndEmitDateChanged()
+                return
+
+            # Cerca la prossima posizione valida con un underscore
+            for pos in valid_positions:
+                if pos >= current_pos and text[pos] == '_':
+                    new_text = text[:pos] + digit + text[pos + 1:]
+                    self.lineEdit.setText(new_text)
+
+                    # Se abbiamo inserito il primo o terzo numero, spostiamo automaticamente dopo lo slash
+                    if pos == 1 or pos == 4:
+                        self.lineEdit.setCursorPosition(pos + 2)
+                    else:
+                        self.lineEdit.setCursorPosition(pos + 1)
+
+                    # Controlla se la data è valida e segnala il cambiamento
+                    self._checkAndEmitDateChanged()
+                    return
+
+        # Per altri tasti, usa il comportamento di default
+        QLineEdit.keyPressEvent(self.lineEdit, event)
+
+    def _checkAndEmitDateChanged(self):
+        """Controlla se la data attuale è valida e in caso emette il segnale dateChanged"""
+        text = self.lineEdit.text().replace('_', '')
+        if len(text) == 10:  # dd/MM/yyyy
+            date = QDate.fromString(text, self._displayFormat)
+            if date.isValid():
+                self.dateChanged.emit(date)
+
+    def _onTextEdited(self, text):
+        """Gestisce i cambiamenti manuali del testo"""
+        # Assicura che il formato __/__/____ sia sempre mantenuto
+        if len(text) < 10 or '_' not in text:
+            self.lineEdit.setText(self._placeholder)
+            self.lineEdit.setCursorPosition(0)
+
+    def _showCalendar(self):
+        """Mostra il calendario popup sotto il widget"""
+        pos = self.mapToGlobal(self.rect().bottomLeft())
+        self.calendar.move(pos)
+
+        # Se c'è già una data valida, imposta il calendario su quella data
+        date = self.date()
+        if date.isValid():
+            self.calendar.setSelectedDate(date)
+
+        self.calendar.show()
+
+    def _setDateFromCalendar(self, date):
+        """Imposta la data quando selezionata dal calendario"""
+        self.setDate(date)
+        self.calendar.hide()
+        self.dateChanged.emit(date)
+
+    def date(self):
+        """Restituisce la data corrente"""
+        text = self.lineEdit.text()
+        # Ignora il formato se contiene underscore
+        if '_' in text:
+            # Controlla se ci sono abbastanza cifre per ottenere una data parziale
+            cleaned_text = text.replace('_', '')
+            if len(cleaned_text) < 8:  # Necessari almeno gg/mm/yyyy
+                return QDate()
+
+        date = QDate.fromString(text, self._displayFormat)
+        if date.isValid():
+            return date
+        return QDate()
+
+    def setDate(self, date):
+        """Imposta la data"""
+        if isinstance(date, QDate) and date.isValid():
+            self.lineEdit.setText(date.toString(self._displayFormat))
+
+    def text(self):
+        """Restituisce il testo corrente"""
+        text = self.lineEdit.text()
+        # Ritorna una stringa vuota se il formato contiene ancora underscore
+        if '_' in text:
+            return ""
+        return text
+
+    def setDisplayFormat(self, format_string):
+        """Imposta il formato di visualizzazione della data"""
+        self._displayFormat = format_string
+        # Aggiorna anche il formato placeholder se necessario
+        if format_string == "dd/MM/yyyy":
+            self._placeholder = "__/__/____"
+        elif format_string == "yyyy-MM-dd":
+            self._placeholder = "____-__-__"
+        else:
+            # Crea un placeholder appropriato basato sul formato
+            self._placeholder = format_string.replace('d', '_').replace('M', '_').replace('y', '_')
+
+        # Se non c'è una data valida, mostra il placeholder
+        current_date = self.date()
+        if not current_date.isValid():
+            self.lineEdit.setText(self._placeholder)
+        else:
+            self.setDate(current_date)
+
+    def displayFormat(self):
+        """Restituisce il formato di visualizzazione corrente"""
+        return self._displayFormat
