@@ -230,7 +230,19 @@ class InserisciDetentoreDialog(QDialog):
 
         # Luogo detenzione
         self.tipoLuogoDetenzioneEdit = QLineEdit()
-        self.comuneDetenzioneEdit = QLineEdit()
+
+        # Converto comuneDetenzioneEdit da QLineEdit a QComboBox
+        self.comuneDetenzioneCombo = QComboBox()
+        self.comuneDetenzioneCombo.setEditable(True)
+        comuni = load_comuni()
+        self.comuneDetenzioneCombo.addItems(comuni)
+        self.comuneDetenzioneCombo.setCurrentIndex(-1)
+        self.comuneDetenzioneCombo.clearEditText()
+
+        completer_detenzione = QCompleter(comuni)
+        completer_detenzione.setCaseSensitivity(Qt.CaseInsensitive)
+        self.comuneDetenzioneCombo.setCompleter(completer_detenzione)
+
         self.siglaProvinciaDetenzioneEdit = QLineEdit()
         self.siglaProvinciaDetenzioneEdit.setMaximumWidth(60)
         self.tipoViaDetenzioneEdit = QLineEdit()
@@ -248,7 +260,17 @@ class InserisciDetentoreDialog(QDialog):
         self.dataRilascioDocumentoEdit.setDisplayFormat("dd/MM/yyyy")
 
         self.enteRilascioDocumentoEdit = QLineEdit()
-        self.comuneEnteRilascioDocumentoEdit = QLineEdit()
+
+        # Converto comuneEnteRilascioDocumentoEdit da QLineEdit a QComboBox
+        self.comuneEnteRilascioDocumentoCombo = QComboBox()
+        self.comuneEnteRilascioDocumentoCombo.setEditable(True)
+        self.comuneEnteRilascioDocumentoCombo.addItems(comuni)
+        self.comuneEnteRilascioDocumentoCombo.setCurrentIndex(-1)
+        self.comuneEnteRilascioDocumentoCombo.clearEditText()
+
+        completer_ente_rilascio = QCompleter(comuni)
+        completer_ente_rilascio.setCaseSensitivity(Qt.CaseInsensitive)
+        self.comuneEnteRilascioDocumentoCombo.setCompleter(completer_ente_rilascio)
 
     def create_license_group(self):
         """Crea il gruppo per licenza e fascicolo"""
@@ -285,7 +307,7 @@ class InserisciDetentoreDialog(QDialog):
         grid.addWidget(QLabel("Tipo Luogo:"), 0, 0)
         grid.addWidget(self.tipoLuogoDetenzioneEdit, 0, 1)
         grid.addWidget(QLabel("Comune:"), 0, 2)
-        grid.addWidget(self.comuneDetenzioneEdit, 0, 3)
+        grid.addWidget(self.comuneDetenzioneCombo, 0, 3)  # Uso della ComboBox anziché LineEdit
 
         # Riga 2
         grid.addWidget(QLabel("Provincia:"), 1, 0)
@@ -321,7 +343,7 @@ class InserisciDetentoreDialog(QDialog):
 
         # Riga 3
         grid.addWidget(QLabel("Comune Ente:"), 2, 0)
-        grid.addWidget(self.comuneEnteRilascioDocumentoEdit, 2, 1, 1, 3)
+        grid.addWidget(self.comuneEnteRilascioDocumentoCombo, 2, 1, 1, 3)  # Uso della ComboBox anziché LineEdit
 
         group_document.setLayout(grid)
         return group_document
@@ -396,6 +418,10 @@ class InserisciDetentoreDialog(QDialog):
         # Segnali per gli altri controlli
         self.luogoNascitaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_nascita)
         self.comuneResidenzaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_residenza)
+
+        # Nuovo segnale per il comune di detenzione
+        self.comuneDetenzioneCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_detenzione)
+
         self.btnCalcolaCF.clicked.connect(self.calcola_codice_fiscale)
 
         # Double click su tabella
@@ -446,7 +472,15 @@ class InserisciDetentoreDialog(QDialog):
 
         self.numeroPortoArmiEdit.setText(data.get('numeroPortoArmi', ''))
         self.tipoLuogoDetenzioneEdit.setText(data.get('tipoLuogoDetenzione', ''))
-        self.comuneDetenzioneEdit.setText(data.get('comuneDetenzione', ''))
+
+        # Per comuneDetenzione ora utilizziamo una QComboBox
+        if data.get('comuneDetenzione'):
+            index = self.comuneDetenzioneCombo.findText(data.get('comuneDetenzione'), Qt.MatchFixedString)
+            if index >= 0:
+                self.comuneDetenzioneCombo.setCurrentIndex(index)
+            else:
+                self.comuneDetenzioneCombo.setEditText(data.get('comuneDetenzione'))
+
         self.siglaProvinciaDetenzioneEdit.setText(data.get('siglaProvinciaDetenzione', ''))
         self.tipoViaDetenzioneEdit.setText(data.get('tipoViaDetenzione', ''))
         self.viaDetenzioneEdit.setText(data.get('viaDetenzione', ''))
@@ -459,7 +493,15 @@ class InserisciDetentoreDialog(QDialog):
             self.dataRilascioDocumentoEdit.setDate(QDate.fromString(data.get('dataRilascioDocumento'), "dd/MM/yyyy"))
 
         self.enteRilascioDocumentoEdit.setText(data.get('enteRilascioDocumento', ''))
-        self.comuneEnteRilascioDocumentoEdit.setText(data.get('comuneEnteRilascioDocumento', ''))
+
+        # Per comuneEnteRilascioDocumento ora utilizziamo una QComboBox
+        if data.get('comuneEnteRilascioDocumento'):
+            index = self.comuneEnteRilascioDocumentoCombo.findText(data.get('comuneEnteRilascioDocumento'),
+                                                                   Qt.MatchFixedString)
+            if index >= 0:
+                self.comuneEnteRilascioDocumentoCombo.setCurrentIndex(index)
+            else:
+                self.comuneEnteRilascioDocumentoCombo.setEditText(data.get('comuneEnteRilascioDocumento'))
 
     def save_detentore(self):
         """Salva o aggiorna i dati del detentore"""
@@ -488,7 +530,7 @@ class InserisciDetentoreDialog(QDialog):
         dataRilascio = self.dataRilascioEdit.text()
         numeroPortoArmi = self.numeroPortoArmiEdit.text()
         tipoLuogoDetenzione = self.tipoLuogoDetenzioneEdit.text()
-        comuneDetenzione = self.comuneDetenzioneEdit.text()
+        comuneDetenzione = self.comuneDetenzioneCombo.currentText()
         siglaProvinciaDetenzione = self.siglaProvinciaDetenzioneEdit.text()
         tipoViaDetenzione = self.tipoViaDetenzioneEdit.text()
         viaDetenzione = self.viaDetenzioneEdit.text()
@@ -497,7 +539,7 @@ class InserisciDetentoreDialog(QDialog):
         numeroDocumento = self.numeroDocumentoEdit.text()
         dataRilascioDocumento = self.dataRilascioDocumentoEdit.text()
         enteRilascioDocumento = self.enteRilascioDocumentoEdit.text()
-        comuneEnteRilascioDocumento = self.comuneEnteRilascioDocumentoEdit.text()
+        comuneEnteRilascioDocumento = self.comuneEnteRilascioDocumentoCombo.currentText()
 
         try:
             if self.detentore_data and self.detentore_data.get('id'):
@@ -737,6 +779,16 @@ class InserisciDetentoreDialog(QDialog):
 
         sigla = get_sigla_provincia(comune)
         self.siglaProvinciaResidenzaEdit.setText(sigla)
+
+    def update_sigla_provincia_detenzione(self):
+        """Aggiorna la sigla provincia di detenzione in base al comune selezionato"""
+        comune = self.comuneDetenzioneCombo.currentText()
+        if not comune:
+            self.siglaProvinciaDetenzioneEdit.clear()
+            return
+
+        sigla = get_sigla_provincia(comune)
+        self.siglaProvinciaDetenzioneEdit.setText(sigla)
 
     def calcola_codice_fiscale(self):
         """Calcola il codice fiscale in base ai dati inseriti"""
