@@ -608,6 +608,71 @@ class ArmaDialog(QDialog):
             combobox.addItem(value)
             combobox.setCurrentText(value)
 
+    def update_cedente_data_before_transfer(self):
+        """
+        Aggiorna i dati del cedente con quelli del proprietario attuale prima del trasferimento
+        """
+        try:
+            if not self.detentore_id:
+                return False
+
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+
+            # Ottieni i dati del detentore attuale
+            cursor.execute("""
+                SELECT Cognome, Nome, DataNascita, LuogoNascita, SiglaProvinciaNascita, 
+                       ComuneResidenza, SiglaProvinciaResidenza, TipoViaResidenza, 
+                       IndirizzoResidenza, CivicoResidenza, Telefono
+                FROM detentori
+                WHERE ID_Detentore = ?
+            """, (self.detentore_id,))
+
+            detentore = cursor.fetchone()
+
+            if not detentore:
+                return False
+
+            # Aggiorna i dati del cedente nell'arma con quelli del detentore attuale
+            cursor.execute("""
+                UPDATE armi
+                SET CognomeCedente = ?,
+                    NomeCedente = ?,
+                    DataNascitaCedente = ?,
+                    LuogoNascitaCedente = ?,
+                    SiglaProvinciaNascitaCedente = ?,
+                    ComuneResidenzaCedente = ?,
+                    SiglaProvinciaResidenzaCedente = ?,
+                    TipoViaResidenzaCedente = ?,
+                    IndirizzoResidenzaCedente = ?,
+                    CivicoResidenzaCedente = ?,
+                    TelefonoCedente = ?
+                WHERE ID_ArmaDetenuta = ?
+            """, (
+                detentore[0],  # Cognome
+                detentore[1],  # Nome
+                detentore[2],  # DataNascita
+                detentore[3],  # LuogoNascita
+                detentore[4],  # SiglaProvinciaNascita
+                detentore[5],  # ComuneResidenza
+                detentore[6],  # SiglaProvinciaResidenza
+                detentore[7],  # TipoViaResidenza
+                detentore[8],  # IndirizzoResidenza
+                detentore[9],  # CivicoResidenza
+                detentore[10],  # Telefono
+                self.arma_data['ID_ArmaDetenuta']
+            ))
+
+            conn.commit()
+            return True
+
+        except Exception as e:
+            print(f"Errore nell'aggiornamento dei dati del cedente: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
     def save_arma(self):
         """Salva i dati dell'arma nel database"""
         try:
@@ -723,6 +788,17 @@ class ArmaDialog(QDialog):
         """Apre la finestra di dialogo per il trasferimento dell'arma"""
         try:
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
+                # Aggiorna i dati del cedente con quelli del proprietario attuale
+                success = self.update_cedente_data_before_transfer()
+
+                if not success:
+                    QMessageBox.warning(
+                        self,
+                        "Aggiornamento Cedente",
+                        "Non è stato possibile aggiornare automaticamente i dati del cedente. " +
+                        "Il trasferimento continuerà comunque."
+                    )
+
                 dialog = TransferimentoDialog(
                     arma_id=self.arma_data['ID_ArmaDetenuta'],
                     cedente_id=self.detentore_id,
