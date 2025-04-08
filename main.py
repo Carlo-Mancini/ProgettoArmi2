@@ -300,7 +300,9 @@ class MainWindow(QMainWindow):
 
     def open_detentori(self):
         try:
-            dialog = DetentoriListDialog()
+            # Importa la nuova versione del dialog
+            from DetentoriListDialog import DetentoriListDialog
+            dialog = DetentoriListDialog(self)
             dialog.exec_()
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore durante l'apertura della gestione detentori:\n{e}")
