@@ -848,16 +848,6 @@ class ArmaDialog(QDialog):
         """Modifica l'arma esistente"""
         self.save_arma()
 
-    def delete_arma(self):
-        """Elimina l'arma dal database"""
-        if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM armi WHERE ID_ArmaDetenuta = ?", (self.arma_data.get('ID_ArmaDetenuta'),))
-            conn.commit()
-            conn.close()
-        self.accept()
-
     def transfer_arma(self):
         """Apre la finestra di dialogo per il trasferimento dell'arma"""
         try:
@@ -883,7 +873,6 @@ class ArmaDialog(QDialog):
                     self.accept()
         except Exception as e:
             print("Errore nel trasferimento dell'arma:", e)
-
 
     def validate_dates(self):
         """Valida che le date inserite siano coerenti"""
@@ -916,6 +905,257 @@ class ArmaDialog(QDialog):
             pass
 
         return QDate()  # Restituisce una data invalida in caso di errore
+
+    def delete_arma(self):
+        """Elimina l'arma dal database"""
+        if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
+            # Conferma eliminazione
+            from PyQt5.QtWidgets import QMessageBox
+            reply = QMessageBox.question(self, "Conferma eliminazione",
+                                         "Sei sicuro di voler eliminare questa arma?",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+            if reply == QMessageBox.Yes:
+                # Apri il dialogo per la motivazione
+                dialogo_motivo = DialogoMotivoEliminazione(self.arma_data, self)
+                if dialogo_motivo.exec_() != QDialog.Accepted:
+                    return  # L'utente ha annullato l'eliminazione
+
+                # Ottieni il motivo completo formattato
+                motivo_completo = dialogo_motivo.get_motivo_completo()
+
+                conn = None
+                try:
+                    conn = sqlite3.connect("gestione_armi.db")
+                    cursor = conn.cursor()
+
+                    # Ottieni i dettagli dell'arma prima dell'eliminazione
+                    arma_id = self.arma_data.get('ID_ArmaDetenuta')
+                    detentore_id = self.detentore_id
+
+                    # Recupera i dati del detentore (cedente)
+                    cursor.execute("""
+                        SELECT Cognome, Nome, CodiceFiscale 
+                        FROM detentori 
+                        WHERE ID_Detentore = ?
+                    """, (detentore_id,))
+                    detentore_data = cursor.fetchone()
+
+                    # Recupera tutti i dati dell'arma
+                    cursor.execute("""
+                        SELECT TipoArma, MarcaArma, ModelloArma, Matricola, CalibroArma
+                        FROM armi 
+                        WHERE ID_ArmaDetenuta = ?
+                    """, (arma_id,))
+                    arma_details = cursor.fetchone()
+
+                    # Ottieni la data corrente per il trasferimento
+                    from PyQt5.QtCore import QDate, QDateTime
+                    data_trasferimento = QDate.currentDate().toString("yyyy-MM-dd")
+                    timestamp = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
+
+                    # Prepara la nota con il motivo fornito dall'utente
+                    note = motivo_completo
+
+                    # Registra l'eliminazione nella tabella trasferimenti
+                    cursor.execute("""
+                        INSERT INTO trasferimenti 
+                        (ID_Arma, ID_Detentore_Cedente, ID_Detentore_Ricevente, Data_Trasferimento, 
+                         Motivo_Trasferimento, Note, Timestamp_Registrazione,
+                         MarcaArma, ModelloArma, Matricola, CalibroArma, TipoArma,
+                         Cedente_Cognome, Cedente_Nome, Cedente_CodiceFiscale)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        arma_id,  # ID_Arma
+                        detentore_id,  # ID_Detentore_Cedente
+                        -1,  # ID_Detentore_Ricevente (usiamo -1 come valore speciale per "eliminato")
+                        data_trasferimento,  # Data_Trasferimento
+                        "ELIMINAZIONE",  # Motivo_Trasferimento
+                        note,  # Note (con il motivo completo)
+                        timestamp,  # Timestamp_Registrazione
+                        arma_details[1] if arma_details else self.arma_data.get('MarcaArma', ''),  # MarcaArma
+                        arma_details[2] if arma_details else self.arma_data.get('ModelloArma', ''),  # ModelloArma
+                        arma_details[3] if arma_details else self.arma_data.get('Matricola', ''),  # Matricola
+                        arma_details[4] if arma_details else self.arma_data.get('CalibroArma', ''),  # CalibroArma
+                        arma_details[0] if arma_details else self.arma_data.get('TipoArma', ''),  # TipoArma
+                        detentore_data[0] if detentore_data else '',  # Cedente_Cognome
+                        detentore_data[1] if detentore_data else '',  # Cedente_Nome
+                        detentore_data[2] if detentore_data else ''  # Cedente_CodiceFiscale
+                    ))
+
+                    # Ora elimina l'arma
+                    cursor.execute("DELETE FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
+                    conn.commit()
+
+                    QMessageBox.information(self, "Eliminazione completata",
+                                            f"L'arma è stata eliminata con successo.\nMotivo registrato nello storico.")
+                    self.accept()
+
+                except Exception as e:
+                    QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante l'eliminazione: {str(e)}")
+                    print("Errore durante l'eliminazione dell'arma:", e)
+                finally:
+                    if conn:
+                        conn.close()
+class DialogoMotivoEliminazione(QDialog):
+    def __init__(self, arma_data=None, parent=None):
+        super().__init__(parent)
+
+        # Configura la finestra
+        self.setWindowTitle("Eliminazione Arma")
+        self.setMinimumWidth(450)
+        self.setModal(True)
+
+        # Dati dell'arma per il riferimento
+        self.arma_data = arma_data
+
+        # Crea il layout principale
+        main_layout = QVBoxLayout()
+
+        # Gruppo informazioni arma
+        if arma_data:
+            arma_group = QGroupBox("Dettagli Arma")
+            grid = QGridLayout()
+
+            grid.addWidget(QLabel("Marca:"), 0, 0)
+            grid.addWidget(QLabel(arma_data.get('MarcaArma', 'N/D')), 0, 1)
+
+            grid.addWidget(QLabel("Modello:"), 0, 2)
+            grid.addWidget(QLabel(arma_data.get('ModelloArma', 'N/D')), 0, 3)
+
+            grid.addWidget(QLabel("Matricola:"), 1, 0)
+            grid.addWidget(QLabel(arma_data.get('Matricola', 'N/D')), 1, 1)
+
+            grid.addWidget(QLabel("Tipo:"), 1, 2)
+            grid.addWidget(QLabel(arma_data.get('TipoArma', 'N/D')), 1, 3)
+
+            arma_group.setLayout(grid)
+            main_layout.addWidget(arma_group)
+
+        # Gruppo motivo eliminazione
+        motivo_group = QGroupBox("Motivazione Eliminazione")
+        motivo_layout = QVBoxLayout()
+
+        # Etichetta informativa
+        info_label = QLabel("Selezionare il motivo dell'eliminazione dell'arma dal sistema:")
+        info_label.setWordWrap(True)
+        motivo_layout.addWidget(info_label)
+
+        # ComboBox per motivi predefiniti
+        self.comboMotivi = QComboBox()
+        self.comboMotivi.addItems([
+            "ERRORE DI REGISTRAZIONE",
+            "ARMA DISTRUTTA/ROTTAMATA",
+            "SEGNALAZIONE SMARRIMENTO/FURTO",
+            "AGGIORNAMENTO DATI (DUPLICATA)",
+            "TRASFERIMENTO A SOGGETTO NON TRACCIATO",
+            "CONFISCA AUTORITÀ",
+            "ALTRO (SPECIFICARE)"
+        ])
+        motivo_layout.addWidget(self.comboMotivi)
+
+        # Campo per motivo personalizzato
+        self.motivoPersonalizzatoLabel = QLabel("Specificare motivo:")
+        self.motivoPersonalizzatoEdit = QLineEdit()
+        motivo_layout.addWidget(self.motivoPersonalizzatoLabel)
+        motivo_layout.addWidget(self.motivoPersonalizzatoEdit)
+
+        # Riferimento a documento
+        self.riferimentoDocGroup = QGroupBox("Riferimento Documento (opzionale)")
+        riferimento_layout = QFormLayout()
+        self.tipoDocumentoEdit = QLineEdit()
+        self.numeroDocumentoEdit = QLineEdit()
+        self.dataDocumentoEdit = QDateEdit()
+        self.dataDocumentoEdit.setCalendarPopup(True)
+        self.dataDocumentoEdit.setDate(QDate.currentDate())
+        self.enteRilascioEdit = QLineEdit()
+
+        riferimento_layout.addRow("Tipo documento:", self.tipoDocumentoEdit)
+        riferimento_layout.addRow("Numero:", self.numeroDocumentoEdit)
+        riferimento_layout.addRow("Data:", self.dataDocumentoEdit)
+        riferimento_layout.addRow("Ente rilascio:", self.enteRilascioEdit)
+        self.riferimentoDocGroup.setLayout(riferimento_layout)
+
+        # Note aggiuntive
+        self.noteAggiuntiveLabel = QLabel("Note aggiuntive:")
+        self.noteAggiuntiveEdit = QLineEdit()
+
+        # Aggiungi tutti gli elementi al layout del gruppo
+        motivo_group.setLayout(motivo_layout)
+        main_layout.addWidget(motivo_group)
+        main_layout.addWidget(self.riferimentoDocGroup)
+        main_layout.addWidget(self.noteAggiuntiveLabel)
+        main_layout.addWidget(self.noteAggiuntiveEdit)
+
+        # Pulsanti di conferma/annulla
+        buttons_layout = QHBoxLayout()
+        self.btnConferma = QPushButton("Conferma eliminazione")
+        self.btnConferma.setStyleSheet("background-color: #d9534f; color: white;")
+        self.btnAnnulla = QPushButton("Annulla")
+
+        buttons_layout.addWidget(self.btnAnnulla)
+        buttons_layout.addWidget(self.btnConferma)
+        main_layout.addLayout(buttons_layout)
+
+        self.setLayout(main_layout)
+
+        # Connessioni
+        self.comboMotivi.currentIndexChanged.connect(self.on_motivo_changed)
+        self.btnConferma.clicked.connect(self.accept)
+        self.btnAnnulla.clicked.connect(self.reject)
+
+        # Inizializza la vista
+        self.on_motivo_changed(0)
+
+        # Converti tutto in maiuscolo
+        self.motivoPersonalizzatoEdit.textChanged.connect(self.convert_to_uppercase)
+        self.tipoDocumentoEdit.textChanged.connect(self.convert_to_uppercase)
+        self.numeroDocumentoEdit.textChanged.connect(self.convert_to_uppercase)
+        self.enteRilascioEdit.textChanged.connect(self.convert_to_uppercase)
+        self.noteAggiuntiveEdit.textChanged.connect(self.convert_to_uppercase)
+
+    def on_motivo_changed(self, index):
+        """Gestisce la visibilità del campo motivo personalizzato"""
+        is_altro = self.comboMotivi.currentText() == "ALTRO (SPECIFICARE)"
+        self.motivoPersonalizzatoLabel.setVisible(is_altro)
+        self.motivoPersonalizzatoEdit.setVisible(is_altro)
+
+    def convert_to_uppercase(self):
+        """Converte il testo dell'oggetto chiamante in maiuscolo"""
+        sender = self.sender()
+        cursor_pos = sender.cursorPosition()
+        sender.setText(sender.text().upper())
+        sender.setCursorPosition(cursor_pos)
+
+    def get_motivo_completo(self):
+        """Restituisce il motivo formattato per il database"""
+        motivo_principale = self.comboMotivi.currentText()
+
+        if motivo_principale == "ALTRO (SPECIFICARE)":
+            motivo_base = self.motivoPersonalizzatoEdit.text().strip() or "NON SPECIFICATO"
+        else:
+            motivo_base = motivo_principale
+
+        # Aggiungi dettagli documento se presenti
+        has_doc_details = (self.tipoDocumentoEdit.text().strip() or
+                           self.numeroDocumentoEdit.text().strip() or
+                           self.enteRilascioEdit.text().strip())
+
+        if has_doc_details:
+            doc_tipo = self.tipoDocumentoEdit.text().strip() or "DOC"
+            doc_numero = self.numeroDocumentoEdit.text().strip() or "N/D"
+            doc_data = self.dataDocumentoEdit.date().toString("dd/MM/yyyy")
+            doc_ente = self.enteRilascioEdit.text().strip() or "N/D"
+
+            motivo_base += f" - RIF: {doc_tipo} N.{doc_numero} DEL {doc_data} ({doc_ente})"
+
+        # Aggiungi note aggiuntive se presenti
+        note = self.noteAggiuntiveEdit.text().strip()
+        if note:
+            motivo_base += f" - NOTE: {note}"
+
+        return motivo_base
+
 
 if __name__ == "__main__":
     import sys

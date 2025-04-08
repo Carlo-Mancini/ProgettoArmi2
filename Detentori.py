@@ -219,8 +219,17 @@ class InserisciDetentoreDialog(QDialog):
 
         # Ente rilascio
         self.enteRilascioEdit = QLineEdit()
-        self.provinciaEnteRilascioEdit = QLineEdit()
-        self.provinciaEnteRilascioEdit.setMaximumWidth(60)
+
+        # Combobox province per ente rilascio
+        self.provinciaEnteRilascioCombo = QComboBox()
+        self.provinciaEnteRilascioCombo.setEditable(True)
+        province = load_province()
+        self.provinciaEnteRilascioCombo.addItems(province)
+        self.provinciaEnteRilascioCombo.setCurrentIndex(-1)
+        self.provinciaEnteRilascioCombo.clearEditText()
+        completer_provincia = QCompleter(province)
+        completer_provincia.setCaseSensitivity(Qt.CaseInsensitive)
+        self.provinciaEnteRilascioCombo.setCompleter(completer_provincia)
 
         # Sostituzione per la data di rilascio
         self.dataRilascioEdit = DateInputWidget()
@@ -287,7 +296,7 @@ class InserisciDetentoreDialog(QDialog):
         grid.addWidget(QLabel("Ente Rilascio:"), 1, 0)
         grid.addWidget(self.enteRilascioEdit, 1, 1)
         grid.addWidget(QLabel("Provincia Ente:"), 1, 2)
-        grid.addWidget(self.provinciaEnteRilascioEdit, 1, 3)
+        grid.addWidget(self.provinciaEnteRilascioCombo, 1, 3)  # Uso della ComboBox anziché LineEdit
 
         # Riga 3
         grid.addWidget(QLabel("Data Rilascio:"), 2, 0)
@@ -463,7 +472,14 @@ class InserisciDetentoreDialog(QDialog):
         self.fascicoloPersonaleEdit.setText(data.get('fascicoloPersonale', ''))
         self.tipologiaTitoloEdit.setText(data.get('tipologiaTitolo', ''))
         self.enteRilascioEdit.setText(data.get('enteRilascio', ''))
-        self.provinciaEnteRilascioEdit.setText(data.get('provinciaEnteRilascio', ''))
+
+        # Aggiornamento per la provincia ente rilascio con combobox
+        if data.get('provinciaEnteRilascio'):
+            index = self.provinciaEnteRilascioCombo.findText(data.get('provinciaEnteRilascio'), Qt.MatchFixedString)
+            if index >= 0:
+                self.provinciaEnteRilascioCombo.setCurrentIndex(index)
+            else:
+                self.provinciaEnteRilascioCombo.setEditText(data.get('provinciaEnteRilascio'))
 
         # Imposta le altre date con i nuovi widget
         if data.get('dataRilascio'):
@@ -526,7 +542,7 @@ class InserisciDetentoreDialog(QDialog):
         fascicoloPersonale = self.fascicoloPersonaleEdit.text()
         tipologiaTitolo = self.tipologiaTitoloEdit.text()
         enteRilascio = self.enteRilascioEdit.text()
-        provinciaEnteRilascio = self.provinciaEnteRilascioEdit.text()
+        provinciaEnteRilascio = self.provinciaEnteRilascioCombo.currentText()  # Legge dalla ComboBox
         dataRilascio = self.dataRilascioEdit.text()
         numeroPortoArmi = self.numeroPortoArmiEdit.text()
         tipoLuogoDetenzione = self.tipoLuogoDetenzioneEdit.text()
@@ -827,6 +843,19 @@ def load_comuni():
         print("Errore nel caricamento dei comuni:", e)
         return []
 
+def load_province():
+    """Carica la lista delle province dal database"""
+    try:
+        conn = sqlite3.connect("gestione_armi.db")
+        cursor = conn.cursor()
+        cursor.execute('SELECT C15 FROM province')
+        rows = cursor.fetchall()
+        conn.close()
+        # Converte in maiuscolo
+        return [row[0].upper() for row in rows if row[0]]
+    except Exception as e:
+        print("Errore nel caricamento delle province:", e)
+        return []
 
 class TestWidget(QWidget):
     def __init__(self):

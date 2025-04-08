@@ -15,6 +15,7 @@ class StoricoMovimentiArmaDialog(QDialog):
         super().__init__(parent)
         self.id_arma = id_arma
         self.arma_details = {}
+        self.arma_exists = False
 
         self.setWindowTitle("Storico Movimenti Arma")
         self.resize(1280, 720)
@@ -70,6 +71,13 @@ class StoricoMovimentiArmaDialog(QDialog):
         header_layout.addWidget(self.attualeDetenoreLabel, 2, 2)
         header_layout.addWidget(self.attualeDetenoreValue, 2, 3)
 
+        # Aggiungiamo un label per lo stato dell'arma (cancellata o attiva)
+        self.statoArmaLabel = QLabel("Stato:")
+        self.statoArmaLabel.setFont(QFont("Arial", 10, QFont.Bold))
+        self.statoArmaValue = QLabel()
+        header_layout.addWidget(self.statoArmaLabel, 3, 0)
+        header_layout.addWidget(self.statoArmaValue, 3, 1, 1, 3)  # Span across 3 columns
+
         self.header_group.setLayout(header_layout)
         main_layout.addWidget(self.header_group)
 
@@ -92,7 +100,7 @@ class StoricoMovimentiArmaDialog(QDialog):
         self.motivoLabel = QLabel("Motivo Trasferimento:")
         self.motivoCombo = QComboBox()
         self.motivoCombo.addItem("Tutti")
-        self.motivoCombo.addItems(["Vendita", "Donazione", "Eredità", "Comodato", "Altro"])
+        self.motivoCombo.addItems(["VENDITA", "DONAZIONE", "EREDITÀ", "COMODATO D'USO", "ELIMINAZIONE", "ALTRO"])
         filter_layout.addWidget(self.motivoLabel, 1, 0)
         filter_layout.addWidget(self.motivoCombo, 1, 1)
 
@@ -179,12 +187,12 @@ class StoricoMovimentiArmaDialog(QDialog):
         self.cercaInput.textChanged.connect(self.apply_filters)
 
     def load_arma_details(self):
-        """Carica i dettagli dell'arma selezionata"""
+        """Carica i dettagli dell'arma selezionata, gestendo anche armi cancellate"""
         try:
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
 
-            # Query per ottenere i dettagli dell'arma
+            # Prima verifico nella tabella armi
             cursor.execute("""
                 SELECT a.MarcaArma, a.ModelloArma, a.Matricola, a.CalibroArma, a.TipoArma,
                        d.Cognome, d.Nome, d.CodiceFiscale
@@ -194,32 +202,85 @@ class StoricoMovimentiArmaDialog(QDialog):
             """, (self.id_arma,))
 
             row = cursor.fetchone()
+
             if row:
+                self.arma_exists = True
                 self.arma_details = {
-                    'marca': row[0],
-                    'modello': row[1],
-                    'matricola': row[2],
-                    'calibro': row[3],
-                    'tipo': row[4],
-                    'detentore_cognome': row[5],
-                    'detentore_nome': row[6],
-                    'detentore_cf': row[7]
+                    'marca': row[0] or "",
+                    'modello': row[1] or "",
+                    'matricola': row[2] or "",
+                    'calibro': row[3] or "",
+                    'tipo': row[4] or "",
+                    'detentore_cognome': row[5] or "",
+                    'detentore_nome': row[6] or "",
+                    'detentore_cf': row[7] or ""
                 }
 
-                # Popoliamo i campi dell'interfaccia
-                self.marcaValue.setText(self.arma_details['marca'] or "")
-                self.modelloValue.setText(self.arma_details['modello'] or "")
-                self.matricolaValue.setText(self.arma_details['matricola'] or "")
-                self.calibroValue.setText(self.arma_details['calibro'] or "")
-                self.tipoArmaValue.setText(self.arma_details['tipo'] or "")
+                # Mostra i dettagli dell'arma attiva
+                self.marcaValue.setText(self.arma_details['marca'])
+                self.modelloValue.setText(self.arma_details['modello'])
+                self.matricolaValue.setText(self.arma_details['matricola'])
+                self.calibroValue.setText(self.arma_details['calibro'])
+                self.tipoArmaValue.setText(self.arma_details['tipo'])
 
-                detentore = f"{self.arma_details['detentore_cognome'] or ''} {self.arma_details['detentore_nome'] or ''}"
+                detentore = f"{self.arma_details['detentore_cognome']} {self.arma_details['detentore_nome']}".strip()
                 if self.arma_details['detentore_cf']:
                     detentore += f" (CF: {self.arma_details['detentore_cf']})"
                 self.attualeDetenoreValue.setText(detentore)
 
+                # Stato attivo
+                self.statoArmaValue.setText("ATTIVA")
+                self.statoArmaValue.setStyleSheet("color: green; font-weight: bold;")
+            else:
+                # L'arma non è più presente nella tabella armi, cerca nella tabella trasferimenti
+                cursor.execute("""
+                    SELECT MarcaArma, ModelloArma, Matricola, CalibroArma, TipoArma, 
+                           Motivo_Trasferimento, Data_Trasferimento, Note
+                    FROM trasferimenti
+                    WHERE ID_Arma = ?
+                    ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
+                    LIMIT 1
+                """, (self.id_arma,))
+
+                row_trasf = cursor.fetchone()
+                if row_trasf:
+                    self.arma_exists = False
+                    self.arma_details = {
+                        'marca': row_trasf[0] or "",
+                        'modello': row_trasf[1] or "",
+                        'matricola': row_trasf[2] or "",
+                        'calibro': row_trasf[3] or "",
+                        'tipo': row_trasf[4] or "",
+                        'motivo_eliminazione': row_trasf[5] or "ELIMINAZIONE",
+                        'data_eliminazione': row_trasf[6] or "",
+                        'note_eliminazione': row_trasf[7] or ""
+                    }
+
+                    # Mostra i dettagli dell'arma cancellata
+                    self.marcaValue.setText(self.arma_details['marca'])
+                    self.modelloValue.setText(self.arma_details['modello'])
+                    self.matricolaValue.setText(self.arma_details['matricola'])
+                    self.calibroValue.setText(self.arma_details['calibro'])
+                    self.tipoArmaValue.setText(self.arma_details['tipo'])
+
+                    # Indica che l'arma è stata cancellata
+                    self.attualeDetenoreValue.setText("ARMA NON PIÙ PRESENTE NEL DATABASE")
+                    self.attualeDetenoreValue.setStyleSheet("color: red; font-weight: bold;")
+
+                    # Stato cancellata con dettagli
+                    stato_text = f"ELIMINATA in data {self.arma_details['data_eliminazione']}"
+                    self.statoArmaValue.setText(stato_text)
+                    self.statoArmaValue.setStyleSheet("color: red; font-weight: bold;")
+                else:
+                    # Caso estremamente raro: ID arma non trovato né in armi né in trasferimenti
+                    QMessageBox.warning(self, "Arma non trovata",
+                                        f"Non è stato possibile trovare l'arma con ID {self.id_arma} né nel database attuale né nello storico trasferimenti.")
+                    self.arma_exists = False
+                    self.reject()  # Chiude il dialogo
+
             conn.close()
         except Exception as e:
+            print(f"Errore nel caricamento dei dettagli dell'arma: {e}")
             QMessageBox.critical(self, "Errore", f"Impossibile caricare i dettagli dell'arma:\n{e}")
 
     def load_data(self):
@@ -236,7 +297,7 @@ class StoricoMovimentiArmaDialog(QDialog):
                        Note
                 FROM trasferimenti
                 WHERE ID_Arma = ?
-                ORDER BY Data_Trasferimento DESC
+                ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
             """, (self.id_arma,))
 
             rows = cursor.fetchall()
@@ -249,12 +310,16 @@ class StoricoMovimentiArmaDialog(QDialog):
                 id_item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row_idx, 0, id_item)
 
-                data_item = QTableWidgetItem(str(row[1]))
+                data_item = QTableWidgetItem(str(row[1] or ''))
                 data_item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row_idx, 1, data_item)
 
-                motivo_item = QTableWidgetItem(str(row[2]))
+                motivo_item = QTableWidgetItem(str(row[2] or ''))
                 motivo_item.setTextAlignment(Qt.AlignCenter)
+                # Evidenzia in rosso le eliminazioni
+                if row[2] == "ELIMINAZIONE":
+                    motivo_item.setForeground(Qt.red)
+                    motivo_item.setFont(QFont("Arial", weight=QFont.Bold))
                 self.table.setItem(row_idx, 2, motivo_item)
 
                 # Cedente (unione cognome e nome)
@@ -286,25 +351,40 @@ class StoricoMovimentiArmaDialog(QDialog):
                                         "Non ci sono trasferimenti registrati per questa arma.")
 
         except Exception as e:
+            print(f"Errore nel caricamento dei trasferimenti: {e}")
             QMessageBox.critical(self, "Errore", f"Impossibile caricare i dati dei trasferimenti:\n{e}")
 
     def apply_filters(self):
         """Applica i filtri alla tabella"""
         search_text = self.cercaInput.text().lower()
         selected_motivo = self.motivoCombo.currentText()
-        data_iniziale = self.dataIniziale.date().toString("dd/MM/yyyy")
-        data_finale = self.dataFinale.date().toString("dd/MM/yyyy")
+        data_iniziale = self.dataIniziale.date().toString("yyyy-MM-dd")
+        data_finale = self.dataFinale.date().toString("yyyy-MM-dd")
 
         for row in range(self.table.rowCount()):
             show_row = True
 
             # Filtro per data
             data_trasferimento = self.table.item(row, 1).text()
-            if data_trasferimento < data_iniziale or data_trasferimento > data_finale:
-                show_row = False
+            try:
+                # Converti la data dal formato visualizzato al formato per confronto
+                if data_trasferimento:
+                    # Assumi che il formato nella tabella possa essere dd/MM/yyyy o yyyy-MM-dd
+                    if "/" in data_trasferimento:
+                        parts = data_trasferimento.split('/')
+                        if len(parts) == 3:
+                            data_trasferimento = f"{parts[2]}-{parts[1]}-{parts[0]}"
+
+                    # Ora confronta
+                    if data_trasferimento < data_iniziale or data_trasferimento > data_finale:
+                        show_row = False
+            except:
+                # In caso di errore nel confronto date, mostra comunque la riga
+                pass
 
             # Filtro per motivo
-            if selected_motivo != "Tutti" and self.table.item(row, 2).text() != selected_motivo:
+            motivo = self.table.item(row, 2).text()
+            if selected_motivo != "Tutti" and motivo.upper() != selected_motivo.upper():
                 show_row = False
 
             # Filtro per testo di ricerca
@@ -346,30 +426,52 @@ class StoricoMovimentiArmaDialog(QDialog):
         from PyQt5.QtGui import QTextDocument
 
         doc = QTextDocument()
-        html = """
+
+        # Determina se l'arma è attiva o eliminata
+        stato_arma = "ATTIVA" if self.arma_exists else "ELIMINATA"
+        stato_color = "green" if self.arma_exists else "red"
+
+        html = f"""
         <html>
         <head>
             <style>
-                body { font-family: Arial, sans-serif; }
-                h1 { font-size: 18pt; color: #003366; text-align: center; }
-                h2 { font-size: 14pt; color: #003366; margin-bottom: 5px; }
-                table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-                th { background-color: #e0e0e0; padding: 8px; text-align: left; border: 1px solid #ddd; }
-                td { padding: 8px; border: 1px solid #ddd; }
-                .info { margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9; }
-                .info p { margin: 5px 0; }
+                body {{ font-family: Arial, sans-serif; }}
+                h1 {{ font-size: 18pt; color: #003366; text-align: center; }}
+                h2 {{ font-size: 14pt; color: #003366; margin-bottom: 5px; }}
+                table {{ border-collapse: collapse; width: 100%; margin-top: 10px; }}
+                th {{ background-color: #e0e0e0; padding: 8px; text-align: left; border: 1px solid #ddd; }}
+                td {{ padding: 8px; border: 1px solid #ddd; }}
+                .info {{ margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; background-color: #f9f9f9; }}
+                .info p {{ margin: 5px 0; }}
+                .stato-arma {{ color: {stato_color}; font-weight: bold; }}
             </style>
         </head>
         <body>
             <h1>Storico Trasferimenti Arma</h1>
             <div class="info">
                 <h2>Dettagli Arma</h2>
-                <p><b>Marca:</b> %s</p>
-                <p><b>Modello:</b> %s</p>
-                <p><b>Matricola:</b> %s</p>
-                <p><b>Calibro:</b> %s</p>
-                <p><b>Tipo:</b> %s</p>
-                <p><b>Detentore Attuale:</b> %s</p>
+                <p><b>Marca:</b> {self.arma_details.get('marca', '')}</p>
+                <p><b>Modello:</b> {self.arma_details.get('modello', '')}</p>
+                <p><b>Matricola:</b> {self.arma_details.get('matricola', '')}</p>
+                <p><b>Calibro:</b> {self.arma_details.get('calibro', '')}</p>
+                <p><b>Tipo:</b> {self.arma_details.get('tipo', '')}</p>
+                <p><b>Stato:</b> <span class="stato-arma">{stato_arma}</span></p>
+        """
+
+        # Aggiungi informazioni specifiche in base allo stato dell'arma
+        if self.arma_exists:
+            detentore = f"{self.arma_details.get('detentore_cognome', '')} {self.arma_details.get('detentore_nome', '')}".strip()
+            if self.arma_details.get('detentore_cf'):
+                detentore += f" (CF: {self.arma_details.get('detentore_cf')})"
+            html += f"<p><b>Detentore Attuale:</b> {detentore}</p>"
+        else:
+            html += f"""
+                <p><b>Data Eliminazione:</b> {self.arma_details.get('data_eliminazione', '')}</p>
+                <p><b>Motivo:</b> {self.arma_details.get('motivo_eliminazione', '')}</p>
+                <p><b>Note:</b> {self.arma_details.get('note_eliminazione', '')}</p>
+            """
+
+        html += """
             </div>
             <h2>Trasferimenti</h2>
             <table>
@@ -380,14 +482,7 @@ class StoricoMovimentiArmaDialog(QDialog):
                     <th>Ricevente</th>
                     <th>Note</th>
                 </tr>
-        """ % (
-            self.arma_details.get('marca', ''),
-            self.arma_details.get('modello', ''),
-            self.arma_details.get('matricola', ''),
-            self.arma_details.get('calibro', ''),
-            self.arma_details.get('tipo', ''),
-            f"{self.arma_details.get('detentore_cognome', '')} {self.arma_details.get('detentore_nome', '')}"
-        )
+        """
 
         # Aggiungi righe della tabella che non sono nascoste
         for row in range(self.table.rowCount()):
@@ -398,8 +493,11 @@ class StoricoMovimentiArmaDialog(QDialog):
                 ricevente = self.table.item(row, 5).text()
                 note = self.table.item(row, 7).text()
 
+                # Evidenzia in rosso le righe di eliminazione
+                row_style = ' style="color: red; font-weight: bold;"' if motivo == "ELIMINAZIONE" else ""
+
                 html += f"""
-                <tr>
+                <tr{row_style}>
                     <td>{data}</td>
                     <td>{motivo}</td>
                     <td>{cedente}</td>
@@ -408,14 +506,14 @@ class StoricoMovimentiArmaDialog(QDialog):
                 </tr>
                 """
 
-        html += """
+        html += f"""
             </table>
             <p style="font-size: 8pt; text-align: right; margin-top: 20px;">
-                Report generato il %s
+                Report generato il {datetime.now().strftime("%d/%m/%Y %H:%M")}
             </p>
         </body>
         </html>
-        """ % (datetime.now().strftime("%d/%m/%Y %H:%M"))
+        """
 
         doc.setHtml(html)
         return doc
@@ -444,6 +542,15 @@ class StoricoMovimentiArmaDialog(QDialog):
                 writer.writerow([f"Marca: {self.arma_details.get('marca', '')}",
                                  f"Modello: {self.arma_details.get('modello', '')}",
                                  f"Matricola: {self.arma_details.get('matricola', '')}"])
+
+                # Aggiungi lo stato dell'arma
+                stato = "ATTIVA" if self.arma_exists else "ELIMINATA"
+                writer.writerow([f"Stato: {stato}"])
+
+                if not self.arma_exists:
+                    writer.writerow([f"Data eliminazione: {self.arma_details.get('data_eliminazione', '')}",
+                                     f"Motivo: {self.arma_details.get('motivo_eliminazione', '')}"])
+
                 writer.writerow([f"Data esportazione: {datetime.now().strftime('%d/%m/%Y %H:%M')}"])
                 writer.writerow([])  # Riga vuota
 
@@ -468,15 +575,3 @@ class StoricoMovimentiArmaDialog(QDialog):
 
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore durante l'esportazione:\n{e}")
-
-
-if __name__ == "__main__":
-    import sys
-
-    app = QApplication(sys.argv)
-
-    # Applica uno stile moderno
-    app.setStyle(QStyleFactory.create("Fusion"))
-
-    dialog = StoricoMovimentiArmaDialog(1)
-    dialog.exec_()
