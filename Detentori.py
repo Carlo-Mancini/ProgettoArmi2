@@ -690,12 +690,15 @@ class InserisciDetentoreDialog(QDialog):
         """Carica le armi del detentore nella tabella"""
         if not self.detentore_data or not self.detentore_data.get('id'):
             self.armiTable.setRowCount(0)
+            print("DEBUG - carica_armi: Nessun detentore selezionato")
             return
 
         try:
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
             det_id = self.detentore_data.get('id')
+            print(f"DEBUG - carica_armi: Caricamento armi per detentore ID={det_id}")
+
             cursor.execute("""
                 SELECT ID_ArmaDetenuta, MarcaArma, ModelloArma, Matricola 
                 FROM armi 
@@ -704,6 +707,7 @@ class InserisciDetentoreDialog(QDialog):
             """, (det_id,))
 
             rows = cursor.fetchall()
+            print(f"DEBUG - carica_armi: Trovate {len(rows)} armi")
 
             self.armiTable.setRowCount(len(rows))
             for row_index, row in enumerate(rows):
@@ -711,6 +715,9 @@ class InserisciDetentoreDialog(QDialog):
                 marca = row[1] if row[1] is not None else ""
                 modello = row[2] if row[2] is not None else ""
                 matricola = row[3] if row[3] is not None else ""
+
+                print(
+                    f"DEBUG - Arma {row_index + 1}: ID={id_arma}, Marca={marca}, Modello={modello}, Matricola={matricola}")
 
                 marca_item = QTableWidgetItem(marca)
                 modello_item = QTableWidgetItem(modello)
@@ -727,9 +734,13 @@ class InserisciDetentoreDialog(QDialog):
             self.armiTable.resizeColumnsToContents()
 
         except Exception as e:
+            print(f"ERRORE CRITICO nel caricamento delle armi: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "Errore", f"Errore nel caricamento delle armi: {str(e)}")
         finally:
-            conn.close()
+            if 'conn' in locals() and conn:
+                conn.close()
 
     def inserisci_arma(self):
         """Inserisce una nuova arma per il detentore"""

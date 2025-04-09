@@ -138,7 +138,6 @@ class RicercaArmaDialog(QDialog):
 
     def search_armi(self):
         """Cerca le armi nel database in base ai filtri specificati"""
-        QMessageBox.information(self, "Debug", "Il metodo search_armi() è stato chiamato")
         marca = self.marca_input.text().strip()
         modello = self.modello_input.text().strip()
         matricola = self.matricola_input.text().strip()
@@ -154,7 +153,6 @@ class RicercaArmaDialog(QDialog):
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
 
-            # PARTE 1: Cerca nelle armi attive
             # PARTE 1: Cerca nelle armi attive
             if include_deleted != "Solo cancellate":
                 where_clauses = []
@@ -179,26 +177,29 @@ class RicercaArmaDialog(QDialog):
                     params.append(f"%{detentore.lower()}%")
 
                 where_clause = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+                # Query corretta con tutte le colonne specificate
                 query = f"""
-                               SELECT a.ID_ArmaDetenuta, ... , 'Attiva' as Stato
-                               FROM armi a
-                               LEFT JOIN detentori d ON a.ID_Detentore = d.ID_Detentore
-                               WHERE {where_clause}
-                           """
+                    SELECT a.ID_ArmaDetenuta, a.MarcaArma, a.ModelloArma, a.Matricola, a.CalibroArma, 
+                           a.TipoArma, d.Cognome || ' ' || d.Nome, 'Attiva' as Stato
+                    FROM armi a
+                    LEFT JOIN detentori d ON a.ID_Detentore = d.ID_Detentore
+                    WHERE {where_clause}
+                """
                 print("Query attive:", query, params)
                 cursor.execute(query, params)
                 active_results = cursor.fetchall()
                 print("Risultati attive:", active_results)
                 all_results.extend(active_results)
 
-                # PARTE 2: Cerca nelle armi cancellate
-                if include_deleted != "No":
-                    t_where_clauses = []
-                    t_params = []
-                    t_where_clauses.append("t.Motivo_Trasferimento = 'ELIMINAZIONE'")
-                    if marca:
-                        t_where_clauses.append("LOWER(t.MarcaArma) LIKE ?")
-                        t_params.append(f"%{marca.lower()}%")
+            # PARTE 2: Cerca nelle armi cancellate
+            if include_deleted != "No":
+                t_where_clauses = []
+                t_params = []
+                t_where_clauses.append("t.Motivo_Trasferimento = 'ELIMINAZIONE'")
+                if marca:
+                    t_where_clauses.append("LOWER(t.MarcaArma) LIKE ?")
+                    t_params.append(f"%{marca.lower()}%")
                 if modello:
                     t_where_clauses.append("LOWER(t.ModelloArma) LIKE ?")
                     t_params.append(f"%{modello.lower()}%")
@@ -227,7 +228,7 @@ class RicercaArmaDialog(QDialog):
                         t.TipoArma, 
                         t.Cedente_Cognome || ' ' || t.Cedente_Nome as Detentore,
                         'Cancellata (' || t.Data_Trasferimento || ')' as Stato
-                        FROM trasferimenti t
+                    FROM trasferimenti t
                     INNER JOIN (
                         SELECT Matricola, MAX(Data_Trasferimento) as MaxData, MAX(Timestamp_Registrazione) as MaxTimestamp
                         FROM trasferimenti
@@ -242,8 +243,6 @@ class RicercaArmaDialog(QDialog):
                 cursor.execute(query, t_params)
                 deleted_results = cursor.fetchall()
                 print("Risultati cancellate:", deleted_results)
-                cursor.execute(query, t_params)
-                deleted_results = cursor.fetchall()
                 active_matricole = set(row[3] for row in all_results)
                 filtered_deleted = [row for row in deleted_results if row[3] not in active_matricole]
                 all_results.extend(filtered_deleted)

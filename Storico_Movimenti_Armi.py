@@ -386,6 +386,7 @@ class StoricoMovimentiArmaDialog(QDialog):
             print(f"Errore nel caricamento dei trasferimenti: {e}")
             QMessageBox.critical(self, "Errore", f"Impossibile caricare i dati dei trasferimenti:\n{e}")
 
+
     def apply_filters(self):
         """Applica i filtri alla tabella"""
         search_text = self.cercaInput.text().lower()

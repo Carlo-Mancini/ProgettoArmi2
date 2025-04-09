@@ -133,124 +133,6 @@ class DetentoriListDialog(QDialog):
             QMessageBox.critical(self, "Errore", f"Errore nell'aprire il form di modifica:\n{e}")
 
 
-# Semplice dialog per la ricerca dell'arma
-class SimpleRicercaArmaDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.setWindowTitle("Ricerca Arma per Storico")
-        self.resize(600, 500)
-
-        self.setup_ui()
-
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-
-        # Titolo
-        title_label = QLabel("Ricerca Arma per Visualizzare lo Storico")
-        title_label.setFont(QFont("Arial", 14, QFont.Bold))
-        title_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title_label)
-
-        # Istruzioni
-        instructions = QLabel("Inserisci una matricola o parte di essa per cercare un'arma.")
-        instructions.setAlignment(Qt.AlignCenter)
-        layout.addWidget(instructions)
-
-        # Campo di ricerca
-        search_layout = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Inserisci matricola...")
-        self.search_button = QPushButton("Cerca")
-        self.search_button.setMinimumWidth(100)
-
-        search_layout.addWidget(QLabel("Matricola:"))
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(self.search_button)
-        layout.addLayout(search_layout)
-
-        # Tabella risultati
-        self.result_table = QTableWidget()
-        self.result_table.setColumnCount(5)
-        self.result_table.setHorizontalHeaderLabels([
-            "ID", "Marca", "Modello", "Matricola", "Calibro"
-        ])
-        self.result_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.result_table.setSelectionMode(QTableWidget.SingleSelection)
-        self.result_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.result_table.setAlternatingRowColors(True)
-        layout.addWidget(self.result_table)
-
-        # Pulsanti azione
-        button_layout = QHBoxLayout()
-        self.view_button = QPushButton("Visualizza Storico")
-        self.view_button.setEnabled(False)
-        self.close_button = QPushButton("Chiudi")
-
-        button_layout.addWidget(self.view_button)
-        button_layout.addStretch()
-        button_layout.addWidget(self.close_button)
-        layout.addLayout(button_layout)
-
-        # Connessione segnali
-        self.search_button.clicked.connect(self.search_arma)
-        self.close_button.clicked.connect(self.reject)
-        self.view_button.clicked.connect(self.show_storico)
-        self.result_table.itemSelectionChanged.connect(self.toggle_view_button)
-        self.result_table.itemDoubleClicked.connect(self.show_storico)
-
-    def search_arma(self):
-        matricola = self.search_input.text().strip()
-        if not matricola:
-            QMessageBox.warning(self, "Attenzione", "Inserisci una matricola per la ricerca")
-            return
-
-        try:
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT ID_ArmaDetenuta, MarcaArma, ModelloArma, Matricola, CalibroArma
-                FROM armi
-                WHERE Matricola LIKE ?
-                ORDER BY MarcaArma, ModelloArma
-            """, (f"%{matricola}%",))
-            rows = cursor.fetchall()
-            conn.close()
-
-            self.result_table.setRowCount(len(rows))
-            for row_idx, row in enumerate(rows):
-                for col_idx, value in enumerate(row):
-                    self.result_table.setItem(row_idx, col_idx, QTableWidgetItem(str(value or "")))
-
-            if len(rows) == 0:
-                QMessageBox.information(self, "Informazione", "Nessuna arma trovata con la matricola specificata.")
-
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Errore durante la ricerca:\n{e}")
-            print(f"Dettaglio errore: {traceback.format_exc()}")
-
-    def toggle_view_button(self):
-        self.view_button.setEnabled(len(self.result_table.selectedItems()) > 0)
-
-    def show_storico(self):
-        selected = self.result_table.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Attenzione", "Seleziona un'arma per visualizzare lo storico.")
-            return
-
-        row = selected[0].row()
-        id_arma = int(self.result_table.item(row, 0).text())
-
-        try:
-            # Import qui per evitare import circolari
-            from Storico_Movimenti_Armi import StoricoMovimentiArmaDialog
-            dialog = StoricoMovimentiArmaDialog(id_arma, self)
-            dialog.exec_()
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Impossibile aprire lo storico:\n{e}")
-            print(f"Dettaglio errore: {traceback.format_exc()}")
-
-
 # Finestra principale
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -310,11 +192,12 @@ class MainWindow(QMainWindow):
 
     def open_ricerca_storico(self):
         try:
-            # Utilizziamo la classe semplificata inclusa in questo file
-            dialog = SimpleRicercaArmaDialog(self)
+            # Usa la classe RicercaArmaDialog dal file RicercaArmaDialog.py
+            from RicercaArmaDialog import RicercaArmaDialog
+            dialog = RicercaArmaDialog(self)
             dialog.exec_()
         except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Errore durante l'apertura della ricerca storico:\n{e}")
+            QMessageBox.critical(self, "Errore", f"Errore durante l'apertura della ricerca armi:\n{e}")
             print(f"Dettaglio errore: {traceback.format_exc()}")
 
 

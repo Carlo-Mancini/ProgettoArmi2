@@ -134,7 +134,10 @@ class ArmaDialog(QDialog):
         self.tipoMunizioniEdit = QLineEdit()
         self.quantitaMunizioniEdit = QLineEdit()
         self.tipoBossoloEdit = QLineEdit()
-        self.tipoCedenteEdit = QLineEdit()
+        # Modifica: convertire tipoCedenteEdit da QLineEdit a QComboBox
+        self.tipoCedenteEdit = QComboBox()
+        self.tipoCedenteEdit.addItem("PERSONA FISICA")
+        self.tipoCedenteEdit.addItem("PERSONA GIURIDICA")
         self.noteArmaEdit = QLineEdit()
 
         # Creazione dei gruppi di campi
@@ -337,7 +340,7 @@ class ArmaDialog(QDialog):
         grid.addWidget(QLabel("ExOrdDem:"), 2, 0)
         grid.addWidget(self.exOrdDemEdit, 2, 1)
         grid.addWidget(QLabel("Tipo Cedente:"), 2, 2)
-        grid.addWidget(self.tipoCedenteEdit, 2, 3)
+        grid.addWidget(self.tipoCedenteEdit, 2, 3)  # Ora è una QComboBox
 
         self.group_classification.setLayout(grid)
 
@@ -359,18 +362,25 @@ class ArmaDialog(QDialog):
         self.group_munition.setLayout(grid)
 
     def _create_cedente_tab(self):
-        """Crea la tab con i dati del cedente"""
         self.tab_cedente = QWidget()
 
         # Creazione dei campi di testo
         self.cognomeCedenteEdit = QLineEdit()
         self.nomeCedenteEdit = QLineEdit()
 
-        # Sostituisci QDateEdit con DateInputWidget
+        # Aggiungiamo le etichette come attributi per poterle modificare
+        self.cognomeCedenteLabel = QLabel("Cognome:")
+        self.nomeCedenteLabel = QLabel("Nome:")
+        self.dataNascitaCedenteLabel = QLabel("Data di Nascita:")
+        self.luogoNascitaCedenteLabel = QLabel("Luogo di Nascita:")
+        self.provinciaNascitaCedenteLabel = QLabel("Provincia di Nascita:")
+
+        # Widget per la data di nascita
         self.dataNascitaCedenteEdit = DateInputWidget()
         self.dataNascitaCedenteEdit.setDisplayFormat("dd/MM/yyyy")
         self.dataNascitaCedenteEdit.setDate(QDate.currentDate().addYears(-18))
 
+        # Altri widget esistenti
         self.luogoNascitaCedenteEdit = QLineEdit()
         self.siglaProvinciaResidenzaCedenteEdit = QLineEdit()
         self.comuneResidenzaCedenteEdit = QLineEdit()
@@ -380,57 +390,72 @@ class ArmaDialog(QDialog):
         self.civicoResidenzaCedenteEdit = QLineEdit()
         self.telefonoCedenteEdit = QLineEdit()
 
-        # Creazione dei gruppi
-        group_anagrafica = QGroupBox("Dati Anagrafici")
+        # Creiamo un attributo per il titolo del gruppo residenza
+        self.group_residenza = QGroupBox("Dati Residenza")
+        self.group_anagrafica = QGroupBox("Dati Anagrafici")
+
+        # Layout per l'anagrafica
         grid_anagrafica = QGridLayout()
 
         # Riga 1
-        grid_anagrafica.addWidget(QLabel("Cognome:"), 0, 0)
+        grid_anagrafica.addWidget(self.cognomeCedenteLabel, 0, 0)
         grid_anagrafica.addWidget(self.cognomeCedenteEdit, 0, 1)
-        grid_anagrafica.addWidget(QLabel("Nome:"), 0, 2)
+        grid_anagrafica.addWidget(self.nomeCedenteLabel, 0, 2)
         grid_anagrafica.addWidget(self.nomeCedenteEdit, 0, 3)
 
-        # Riga 2
-        grid_anagrafica.addWidget(QLabel("Data di Nascita:"), 1, 0)
-        grid_anagrafica.addWidget(self.dataNascitaCedenteEdit, 1, 1)
-        grid_anagrafica.addWidget(QLabel("Luogo di Nascita:"), 1, 2)
-        grid_anagrafica.addWidget(self.luogoNascitaCedenteEdit, 1, 3)
+        # Riga 2 - questi widget verranno nascosti per persona giuridica
+        self.datiNascitaWidget = QWidget()
+        nascita_layout = QGridLayout(self.datiNascitaWidget)
+        nascita_layout.addWidget(self.dataNascitaCedenteLabel, 0, 0)
+        nascita_layout.addWidget(self.dataNascitaCedenteEdit, 0, 1)
+        nascita_layout.addWidget(self.luogoNascitaCedenteLabel, 0, 2)
+        nascita_layout.addWidget(self.luogoNascitaCedenteEdit, 0, 3)
+        nascita_layout.addWidget(self.provinciaNascitaCedenteLabel, 1, 0)
+        nascita_layout.addWidget(self.siglaProvinciaNascitaCedenteEdit, 1, 1)
+        nascita_layout.addWidget(QLabel("Telefono:"), 1, 2)
+        nascita_layout.addWidget(self.telefonoCedenteEdit, 1, 3)
+        nascita_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Riga 3
-        grid_anagrafica.addWidget(QLabel("Provincia di Nascita:"), 2, 0)
-        grid_anagrafica.addWidget(self.siglaProvinciaNascitaCedenteEdit, 2, 1)
-        grid_anagrafica.addWidget(QLabel("Telefono:"), 2, 2)
-        grid_anagrafica.addWidget(self.telefonoCedenteEdit, 2, 3)
+        grid_anagrafica.addWidget(self.datiNascitaWidget, 1, 0, 2, 4)
 
-        group_anagrafica.setLayout(grid_anagrafica)
+        self.group_anagrafica.setLayout(grid_anagrafica)
 
-        group_residenza = QGroupBox("Dati Residenza")
+        # Layout per residenza (stessa configurazione di prima)
         grid_residenza = QGridLayout()
-
-        # Riga 1
         grid_residenza.addWidget(QLabel("Comune:"), 0, 0)
         grid_residenza.addWidget(self.comuneResidenzaCedenteEdit, 0, 1)
         grid_residenza.addWidget(QLabel("Provincia:"), 0, 2)
         grid_residenza.addWidget(self.siglaProvinciaResidenzaCedenteEdit, 0, 3)
-
-        # Riga 2
         grid_residenza.addWidget(QLabel("Tipo Via:"), 1, 0)
         grid_residenza.addWidget(self.tipoViaResidenzaCedenteEdit, 1, 1)
         grid_residenza.addWidget(QLabel("Indirizzo:"), 1, 2)
         grid_residenza.addWidget(self.indirizzoResidenzaCedenteEdit, 1, 3)
-
-        # Riga 3
         grid_residenza.addWidget(QLabel("Civico:"), 2, 0)
         grid_residenza.addWidget(self.civicoResidenzaCedenteEdit, 2, 1)
-
-        group_residenza.setLayout(grid_residenza)
+        self.group_residenza.setLayout(grid_residenza)
 
         # Layout principale
         main_layout = QVBoxLayout()
-        main_layout.addWidget(group_anagrafica)
-        main_layout.addWidget(group_residenza)
+        main_layout.addWidget(self.group_anagrafica)
+        main_layout.addWidget(self.group_residenza)
         main_layout.addStretch()
         self.tab_cedente.setLayout(main_layout)
+
+    def _update_cedente_type(self):
+        tipo = self.tipoCedenteEdit.currentText()
+
+        if tipo == "PERSONA GIURIDICA":
+            # Cambiamo le etichette per persona giuridica
+            self.cognomeCedenteLabel.setText("Ragione Sociale:")
+            self.nomeCedenteLabel.setText("Partita IVA/CF:")
+            self.datiNascitaWidget.setVisible(False)
+            self.group_residenza.setTitle("Sede")
+        else:
+            # Ripristiniamo le etichette originali per persona fisica
+            self.cognomeCedenteLabel.setText("Cognome:")
+            self.nomeCedenteLabel.setText("Nome:")
+            self.datiNascitaWidget.setVisible(True)
+            self.group_residenza.setTitle("Dati Residenza")
 
     def _setup_layout(self):
         """Configura il layout principale"""
@@ -466,6 +491,8 @@ class ArmaDialog(QDialog):
         self.marcaArmaEdit.currentIndexChanged.connect(self.on_marca_selected)
         # Collega il segnale quando l'utente finisce di modificare il testo
         self.marcaArmaEdit.editTextChanged.connect(self.on_marca_text_changed)
+        # Aggiungi questo collegamento
+        self.tipoCedenteEdit.currentIndexChanged.connect(self._update_cedente_type)
 
         # Assicurarsi che tutte le combobox convertano il testo in maiuscolo
         for combo in [self.tipoArmaEdit, self.marcaArmaEdit, self.armaLungaCortaEdit,
@@ -617,7 +644,7 @@ class ArmaDialog(QDialog):
         self.tipoMunizioniEdit.setText(data.get('TipoMunizioni', ''))
         self.quantitaMunizioniEdit.setText(data.get('QuantitaMunizioni', ''))
         self.tipoBossoloEdit.setText(data.get('TipoBossolo', ''))
-        self.tipoCedenteEdit.setText(data.get('TipoCedente', ''))
+        self.set_combobox_value(self.tipoCedenteEdit, data.get('TipoCedente', ''))
         self.noteArmaEdit.setText(data.get('NoteArma', ''))
         self.cognomeCedenteEdit.setText(data.get('CognomeCedente', ''))
         self.nomeCedenteEdit.setText(data.get('NomeCedente', ''))
@@ -652,11 +679,15 @@ class ArmaDialog(QDialog):
                 # In caso di errore nel parsing
                 self.dataNascitaCedenteEdit.setDate(QDate.currentDate().addYears(-18))
 
-        # RIMUOVI QUESTE RIGHE:
-        # data_acquisto = data.get('DataAcquisto', '')
-        # print(f"DEBUG - Impostazione dataAcquistoEdit: {data_acquisto}")
+        # Imposta il tipo di cedente e aggiorna l'interfaccia
+        tipo_cedente = data.get('TipoCedente', '')
+        if tipo_cedente == "PERSONA GIURIDICA":
+            index = self.tipoCedenteEdit.findText("PERSONA GIURIDICA")
+            if index >= 0:
+                self.tipoCedenteEdit.setCurrentIndex(index)
+        else:
+            self.tipoCedenteEdit.setCurrentIndex(0)  # Default a PERSONA FISICA
 
-        # Carica lo stato di produzione se la marca esiste
         marca = data.get('MarcaArma', '')
         if marca:
             self.load_stato_produzione(marca)
@@ -739,6 +770,8 @@ class ArmaDialog(QDialog):
             if conn:
                 conn.close()
 
+    # Sostituisci il metodo save_arma() con questo:
+
     def save_arma(self):
         """Salva i dati dell'arma nel database"""
         try:
@@ -776,7 +809,8 @@ class ArmaDialog(QDialog):
             tipoMunizioni = self.tipoMunizioniEdit.text()
             quantitaMunizioni = self.quantitaMunizioniEdit.text()
             tipoBossolo = self.tipoBossoloEdit.text()
-            tipoCedente = self.tipoCedenteEdit.text()
+            # MODIFICA IMPORTANTE: ottieni currentText() dalla combobox
+            tipoCedente = self.tipoCedenteEdit.currentText()
             noteArma = self.noteArmaEdit.text()
             cognomeCedente = self.cognomeCedenteEdit.text()
             nomeCedente = self.nomeCedenteEdit.text()
@@ -792,6 +826,9 @@ class ArmaDialog(QDialog):
             # Ottieni le date formattate in formato stringa per il salvataggio nel database
             dataAcquisto = self.dataAcquistoEdit.date().toString("dd/MM/yyyy")
             dataNascitaCedente = self.dataNascitaCedenteEdit.date().toString("dd/MM/yyyy")
+
+            print(f"DEBUG - Salvataggio arma: ID Detentore={self.detentore_id}, Tipo={tipoArma}, Marca={marcaArma}")
+            print(f"DEBUG - Tipo cedente: {tipoCedente}")
 
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
                 # UPDATE per la modifica
@@ -816,6 +853,7 @@ class ArmaDialog(QDialog):
                     dataAcquisto,
                     self.arma_data.get('ID_ArmaDetenuta')
                 ))
+                print(f"DEBUG - Arma aggiornata con ID: {self.arma_data.get('ID_ArmaDetenuta')}")
             else:
                 # INSERT per un nuovo record
                 cursor.execute("""
@@ -837,12 +875,23 @@ class ArmaDialog(QDialog):
                     tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
                     dataAcquisto
                 ))
+                print(f"DEBUG - Nuova arma inserita per detentore ID: {self.detentore_id}")
+
             conn.commit()
+            QMessageBox.information(self, "Successo", "Arma salvata con successo!")
+
         except Exception as e:
-            print("Errore durante il salvataggio dell'arma:", e)
+            print(f"ERRORE CRITICO durante il salvataggio dell'arma: {e}")
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(self, "Errore", f"Errore durante il salvataggio dell'arma:\n{str(e)}")
+            return False
         finally:
-            conn.close()
+            if 'conn' in locals() and conn:
+                conn.close()
+
         self.accept()
+        return True
 
     def modify_arma(self):
         """Modifica l'arma esistente"""
