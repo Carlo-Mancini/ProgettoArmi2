@@ -6,14 +6,16 @@ from PyQt5.QtWidgets import (
     QMessageBox, QApplication, QStyleFactory, QGridLayout, QDateEdit, QCheckBox
 )
 from PyQt5.QtCore import Qt, QSize, QDate
-from PyQt5.QtGui import QFont, QIcon, QPixmap
+from PyQt5.QtGui import QFont, QIcon, QPixmap, QColor
 from PyQt5.QtPrintSupport import QPrintPreviewDialog, QPrinter
 
 
 class StoricoMovimentiArmaDialog(QDialog):
-    def __init__(self, id_arma, parent=None):
+    def __init__(self, id_arma, matricola=None, is_deleted=False, parent=None):
         super().__init__(parent)
         self.id_arma = id_arma
+        self.matricola = matricola  # Parametro aggiunto per la ricerca per matricola
+        self.is_deleted = is_deleted  # Flag per indicare se l'arma è cancellata
         self.arma_details = {}
         self.arma_exists = False
 
@@ -187,64 +189,30 @@ class StoricoMovimentiArmaDialog(QDialog):
         self.cercaInput.textChanged.connect(self.apply_filters)
 
     def load_arma_details(self):
-        """Carica i dettagli dell'arma selezionata, gestendo anche armi cancellate"""
+        """Carica i dettagli dell'arma selezionata, gestendo anche le armi cancellate"""
         try:
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
 
-            # Prima verifico nella tabella armi
-            cursor.execute("""
-                SELECT a.MarcaArma, a.ModelloArma, a.Matricola, a.CalibroArma, a.TipoArma,
-                       d.Cognome, d.Nome, d.CodiceFiscale
-                FROM armi a
-                LEFT JOIN detentori d ON a.ID_Detentore = d.ID_Detentore
-                WHERE a.ID_ArmaDetenuta = ?
-            """, (self.id_arma,))
-
-            row = cursor.fetchone()
-
-            if row:
-                self.arma_exists = True
-                self.arma_details = {
-                    'marca': row[0] or "",
-                    'modello': row[1] or "",
-                    'matricola': row[2] or "",
-                    'calibro': row[3] or "",
-                    'tipo': row[4] or "",
-                    'detentore_cognome': row[5] or "",
-                    'detentore_nome': row[6] or "",
-                    'detentore_cf': row[7] or ""
-                }
-
-                # Mostra i dettagli dell'arma attiva
-                self.marcaValue.setText(self.arma_details['marca'])
-                self.modelloValue.setText(self.arma_details['modello'])
-                self.matricolaValue.setText(self.arma_details['matricola'])
-                self.calibroValue.setText(self.arma_details['calibro'])
-                self.tipoArmaValue.setText(self.arma_details['tipo'])
-
-                detentore = f"{self.arma_details['detentore_cognome']} {self.arma_details['detentore_nome']}".strip()
-                if self.arma_details['detentore_cf']:
-                    detentore += f" (CF: {self.arma_details['detentore_cf']})"
-                self.attualeDetenoreValue.setText(detentore)
-
-                # Stato attivo
-                self.statoArmaValue.setText("ATTIVA")
-                self.statoArmaValue.setStyleSheet("color: green; font-weight: bold;")
-            else:
-                # L'arma non è più presente nella tabella armi, cerca nella tabella trasferimenti
+            if self.is_deleted and self.matricola:
                 cursor.execute("""
-                    SELECT MarcaArma, ModelloArma, Matricola, CalibroArma, TipoArma, 
-                           Motivo_Trasferimento, Data_Trasferimento, Note
-                    FROM trasferimenti
-                    WHERE ID_Arma = ?
-                    ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
-                    LIMIT 1
-                """, (self.id_arma,))
-
+                    SELECT t.MarcaArma, t.ModelloArma, t.Matricola, t.CalibroArma, t.TipoArma,
+                           t.Motivo_Trasferimento, t.Data_Trasferimento, t.Note, t.ID_Arma
+                    FROM trasferimenti t
+                    INNER JOIN (
+                        SELECT Matricola, MAX(Data_Trasferimento) as MaxData, MAX(Timestamp_Registrazione) as MaxTimestamp
+                        FROM trasferimenti
+                        WHERE Matricola = ? AND Motivo_Trasferimento = 'ELIMINAZIONE'
+                        GROUP BY Matricola
+                    ) latest ON t.Matricola = latest.Matricola 
+                        AND t.Data_Trasferimento = latest.MaxData
+                        AND t.Timestamp_Registrazione = latest.MaxTimestamp
+                    WHERE t.Matricola = ?
+                """, (self.matricola, self.matricola))
                 row_trasf = cursor.fetchone()
                 if row_trasf:
                     self.arma_exists = False
+                    self.id_arma = row_trasf[8]
                     self.arma_details = {
                         'marca': row_trasf[0] or "",
                         'modello': row_trasf[1] or "",
@@ -255,29 +223,92 @@ class StoricoMovimentiArmaDialog(QDialog):
                         'data_eliminazione': row_trasf[6] or "",
                         'note_eliminazione': row_trasf[7] or ""
                     }
-
-                    # Mostra i dettagli dell'arma cancellata
                     self.marcaValue.setText(self.arma_details['marca'])
                     self.modelloValue.setText(self.arma_details['modello'])
                     self.matricolaValue.setText(self.arma_details['matricola'])
                     self.calibroValue.setText(self.arma_details['calibro'])
                     self.tipoArmaValue.setText(self.arma_details['tipo'])
-
-                    # Indica che l'arma è stata cancellata
                     self.attualeDetenoreValue.setText("ARMA NON PIÙ PRESENTE NEL DATABASE")
                     self.attualeDetenoreValue.setStyleSheet("color: red; font-weight: bold;")
-
-                    # Stato cancellata con dettagli
                     stato_text = f"ELIMINATA in data {self.arma_details['data_eliminazione']}"
                     self.statoArmaValue.setText(stato_text)
                     self.statoArmaValue.setStyleSheet("color: red; font-weight: bold;")
-                else:
-                    # Caso estremamente raro: ID arma non trovato né in armi né in trasferimenti
-                    QMessageBox.warning(self, "Arma non trovata",
-                                        f"Non è stato possibile trovare l'arma con ID {self.id_arma} né nel database attuale né nello storico trasferimenti.")
-                    self.arma_exists = False
-                    self.reject()  # Chiude il dialogo
+                    conn.close()
+                    return
 
+            # Se l'arma non risulta cancellata, cerchiamo nella tabella armi
+            cursor.execute("""
+                SELECT a.MarcaArma, a.ModelloArma, a.Matricola, a.CalibroArma, a.TipoArma,
+                       d.Cognome, d.Nome, d.CodiceFiscale
+                FROM armi a
+                LEFT JOIN detentori d ON a.ID_Detentore = d.ID_Detentore
+                WHERE a.ID_ArmaDetenuta = ?
+            """, (self.id_arma,))
+            row = cursor.fetchone()
+            if row:
+                self.arma_exists = True
+                self.matricola = row[2] or ""
+                self.arma_details = {
+                    'marca': row[0] or "",
+                    'modello': row[1] or "",
+                    'matricola': row[2] or "",
+                    'calibro': row[3] or "",
+                    'tipo': row[4] or "",
+                    'detentore_cognome': row[5] or "",
+                    'detentore_nome': row[6] or "",
+                    'detentore_cf': row[7] or ""
+                }
+                self.marcaValue.setText(self.arma_details['marca'])
+                self.modelloValue.setText(self.arma_details['modello'])
+                self.matricolaValue.setText(self.arma_details['matricola'])
+                self.calibroValue.setText(self.arma_details['calibro'])
+                self.tipoArmaValue.setText(self.arma_details['tipo'])
+                detentore = f"{self.arma_details['detentore_cognome']} {self.arma_details['detentore_nome']}".strip()
+                if self.arma_details['detentore_cf']:
+                    detentore += f" (CF: {self.arma_details['detentore_cf']})"
+                self.attualeDetenoreValue.setText(detentore)
+                self.statoArmaValue.setText("ATTIVA")
+                self.statoArmaValue.setStyleSheet("color: green; font-weight: bold;")
+            else:
+                # Se non trovata per ID, proviamo a cercare per matricola
+                if self.matricola:
+                    cursor.execute("""
+                        SELECT MarcaArma, ModelloArma, Matricola, CalibroArma, TipoArma, 
+                               Motivo_Trasferimento, Data_Trasferimento, Note, ID_Arma
+                        FROM trasferimenti
+                        WHERE Matricola = ? AND Motivo_Trasferimento = 'ELIMINAZIONE'
+                        ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
+                        LIMIT 1
+                    """, (self.matricola,))
+                    row_trasf = cursor.fetchone()
+                    if row_trasf:
+                        self.arma_exists = False
+                        self.id_arma = row_trasf[8]
+                        self.matricola = row_trasf[2]
+                        self.arma_details = {
+                            'marca': row_trasf[0] or "",
+                            'modello': row_trasf[1] or "",
+                            'matricola': row_trasf[2] or "",
+                            'calibro': row_trasf[3] or "",
+                            'tipo': row_trasf[4] or "",
+                            'motivo_eliminazione': row_trasf[5] or "ELIMINAZIONE",
+                            'data_eliminazione': row_trasf[6] or "",
+                            'note_eliminazione': row_trasf[7] or ""
+                        }
+                        self.marcaValue.setText(self.arma_details['marca'])
+                        self.modelloValue.setText(self.arma_details['modello'])
+                        self.matricolaValue.setText(self.arma_details['matricola'])
+                        self.calibroValue.setText(self.arma_details['calibro'])
+                        self.tipoArmaValue.setText(self.arma_details['tipo'])
+                        self.attualeDetenoreValue.setText("ARMA NON PIÙ PRESENTE NEL DATABASE")
+                        self.attualeDetenoreValue.setStyleSheet("color: red; font-weight: bold;")
+                        stato_text = f"ELIMINATA in data {self.arma_details['data_eliminazione']}"
+                        self.statoArmaValue.setText(stato_text)
+                        self.statoArmaValue.setStyleSheet("color: red; font-weight: bold;")
+                    else:
+                        QMessageBox.warning(self, "Arma non trovata",
+                                            f"Non è stato possibile trovare l'arma con ID {self.id_arma} o matricola {self.matricola}.")
+                        self.reject()
             conn.close()
         except Exception as e:
             print(f"Errore nel caricamento dei dettagli dell'arma: {e}")
@@ -289,21 +320,29 @@ class StoricoMovimentiArmaDialog(QDialog):
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
 
-            # Ottieni i dati dalla tabella trasferimenti
-            cursor.execute("""
-                SELECT ID_Trasferimento, Data_Trasferimento, Motivo_Trasferimento,
-                       Cedente_Cognome, Cedente_Nome, Cedente_CodiceFiscale,
-                       Ricevente_Cognome, Ricevente_Nome, Ricevente_CodiceFiscale,
-                       Note
-                FROM trasferimenti
-                WHERE ID_Arma = ?
-                ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
-            """, (self.id_arma,))
-
+            if self.matricola:
+                cursor.execute("""
+                    SELECT ID_Trasferimento, Data_Trasferimento, Motivo_Trasferimento,
+                           Cedente_Cognome, Cedente_Nome, Cedente_CodiceFiscale,
+                           Ricevente_Cognome, Ricevente_Nome, Ricevente_CodiceFiscale,
+                           Note
+                    FROM trasferimenti
+                    WHERE Matricola = ?
+                    ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
+                """, (self.matricola,))
+            else:
+                cursor.execute("""
+                    SELECT ID_Trasferimento, Data_Trasferimento, Motivo_Trasferimento,
+                           Cedente_Cognome, Cedente_Nome, Cedente_CodiceFiscale,
+                           Ricevente_Cognome, Ricevente_Nome, Ricevente_CodiceFiscale,
+                           Note
+                    FROM trasferimenti
+                    WHERE ID_Arma = ?
+                    ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
+                """, (self.id_arma,))
             rows = cursor.fetchall()
             conn.close()
 
-            # Popoliamo la tabella
             self.table.setRowCount(len(rows))
             for row_idx, row in enumerate(rows):
                 id_item = QTableWidgetItem(str(row[0]))
@@ -316,40 +355,33 @@ class StoricoMovimentiArmaDialog(QDialog):
 
                 motivo_item = QTableWidgetItem(str(row[2] or ''))
                 motivo_item.setTextAlignment(Qt.AlignCenter)
-                # Evidenzia in rosso le eliminazioni
                 if row[2] == "ELIMINAZIONE":
-                    motivo_item.setForeground(Qt.red)
+                    motivo_item.setForeground(QColor(255, 0, 0))
                     motivo_item.setFont(QFont("Arial", weight=QFont.Bold))
                 self.table.setItem(row_idx, 2, motivo_item)
 
-                # Cedente (unione cognome e nome)
                 cedente = f"{row[3] or ''} {row[4] or ''}".strip()
                 cedente_item = QTableWidgetItem(cedente)
                 self.table.setItem(row_idx, 3, cedente_item)
 
-                # CF Cedente
                 cf_cedente_item = QTableWidgetItem(str(row[5] or ''))
                 cf_cedente_item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row_idx, 4, cf_cedente_item)
 
-                # Ricevente (unione cognome e nome)
                 ricevente = f"{row[6] or ''} {row[7] or ''}".strip()
                 ricevente_item = QTableWidgetItem(ricevente)
                 self.table.setItem(row_idx, 5, ricevente_item)
 
-                # CF Ricevente
                 cf_ricevente_item = QTableWidgetItem(str(row[8] or ''))
                 cf_ricevente_item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row_idx, 6, cf_ricevente_item)
 
-                # Note
                 note_item = QTableWidgetItem(str(row[9] or ''))
                 self.table.setItem(row_idx, 7, note_item)
 
             if len(rows) == 0:
                 QMessageBox.information(self, "Informazione",
                                         "Non ci sono trasferimenti registrati per questa arma.")
-
         except Exception as e:
             print(f"Errore nel caricamento dei trasferimenti: {e}")
             QMessageBox.critical(self, "Errore", f"Impossibile caricare i dati dei trasferimenti:\n{e}")

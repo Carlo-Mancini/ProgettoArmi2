@@ -152,52 +152,6 @@ def get_codice_catastale(comune, db_path="gestione_armi.db"):
         conn.close()
 
 
-def cerca_arma_per_matricola(self, matricola):
-    """Cerca un'arma per matricola, includendo armi eliminate"""
-    matricola = matricola.strip().upper()
-    if not matricola:
-        QMessageBox.warning(self, "Ricerca Arma", "Inserire una matricola valida.")
-        return None
-
-    try:
-        conn = sqlite3.connect("gestione_armi.db")
-        cursor = conn.cursor()
-
-        # Prima cerca nella tabella delle armi attive
-        cursor.execute("SELECT ID_ArmaDetenuta FROM armi WHERE Matricola = ?", (matricola,))
-        result = cursor.fetchone()
-
-        if result:
-            # Arma trovata nella tabella principale
-            arma_id = result[0]
-            conn.close()
-            return arma_id
-        else:
-            # Se non trovata, cerca nella tabella dei trasferimenti
-            cursor.execute("""
-                SELECT DISTINCT ID_Arma 
-                FROM trasferimenti 
-                WHERE Matricola = ? 
-                ORDER BY Data_Trasferimento DESC, Timestamp_Registrazione DESC
-                LIMIT 1
-            """, (matricola,))
-            result = cursor.fetchone()
-
-            if result:
-                # Arma trovata nello storico dei trasferimenti
-                arma_id = result[0]
-                conn.close()
-                return arma_id
-            else:
-                # Arma non trovata da nessuna parte
-                conn.close()
-                QMessageBox.information(self, "Ricerca Arma",
-                                        f"Nessuna arma trovata con matricola {matricola}.")
-                return None
-    except Exception as e:
-        QMessageBox.critical(self, "Errore", f"Errore durante la ricerca dell'arma: {str(e)}")
-        return None
-
 
 from PyQt5.QtWidgets import QLineEdit, QCalendarWidget, QToolButton, QHBoxLayout, QWidget
 from PyQt5.QtCore import QDate, Qt, pyqtSignal, QRegExp
