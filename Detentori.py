@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
 from Utility import convert_all_lineedits_to_uppercase
 from PyQt5.QtCore import Qt
 from Utility import get_sigla_provincia, DateInputWidget
-
+from PyQt5.QtGui import QIcon, QTextDocument
 
 class InserisciDetentoreDialog(QDialog):
     def __init__(self, detentore_data=None):
@@ -385,9 +385,15 @@ class InserisciDetentoreDialog(QDialog):
         self.btnCancellaArma = QPushButton("Cancella Arma")
         self.btnCancellaArma.setMinimumWidth(140)
 
+        # Nuovo pulsante per la stampa della denuncia
+        self.btnStampaDenuncia = QPushButton("Stampa Denuncia")
+        self.btnStampaDenuncia.setMinimumWidth(140)
+        self.btnStampaDenuncia.setIcon(QIcon.fromTheme("document-print"))
+
         btn_layout.addWidget(self.btnInserisciArma)
         btn_layout.addWidget(self.btnModificaArma)
         btn_layout.addWidget(self.btnCancellaArma)
+        btn_layout.addWidget(self.btnStampaDenuncia)  # Aggiunto il nuovo pulsante
         btn_layout.addStretch(1)
 
         main_layout.addWidget(group_armi)
@@ -423,6 +429,7 @@ class InserisciDetentoreDialog(QDialog):
         self.btnInserisciArma.clicked.connect(self.inserisci_arma)
         self.btnModificaArma.clicked.connect(self.modifica_arma_selected)
         self.btnCancellaArma.clicked.connect(self.cancella_arma)
+        self.btnStampaDenuncia.clicked.connect(self.stampa_denuncia_armi)  # Nuovo collegamento
 
         # Segnali per gli altri controlli
         self.luogoNascitaCombo.lineEdit().editingFinished.connect(self.update_sigla_provincia_nascita)
@@ -756,7 +763,7 @@ class InserisciDetentoreDialog(QDialog):
             self.carica_armi()
 
     def cancella_arma(self):
-        """Elimina l'arma selezionata"""
+        """Elimina l'arma selezionata con lo stesso processo di ArmaDialog.delete_arma()"""
         row = self.armiTable.currentRow()
         if row < 0:
             QMessageBox.warning(self, "Attenzione", "Seleziona prima un'arma da eliminare.")
@@ -768,24 +775,115 @@ class InserisciDetentoreDialog(QDialog):
             return
 
         arma_id = item.data(Qt.UserRole)
+        if not arma_id:
+            QMessageBox.warning(self, "Attenzione", "Dati dell'arma non validi.")
+            return
 
-        # Conferma eliminazione
-        reply = QMessageBox.question(self, "Conferma eliminazione",
-                                     "Sei sicuro di voler eliminare questa arma?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        detentore_id = self.detentore_data.get('id') if self.detentore_data else None
+        if not detentore_id:
+            QMessageBox.warning(self, "Attenzione", "Dati del detentore non validi.")
+            return
 
-        if reply == QMessageBox.Yes:
-            try:
-                conn = sqlite3.connect("gestione_armi.db")
-                cursor = conn.cursor()
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+
+            # Recupera i dati dell'arma
+            cursor.execute("""
+                SELECT ID_ArmaDetenuta, TipoArma, MarcaArma, ModelloArma, Matricola, CalibroArma 
+                FROM armi 
+                WHERE ID_ArmaDetenuta = ?
+            """, (arma_id,))
+            arma_data = cursor.fetchone()
+
+            if not arma_data:
+                QMessageBox.warning(self, "Attenzione", "Arma non trovata nel database.")
+                return
+
+            # Prepara il dizionario con i dati dell'arma
+            arma_dict = {
+                'ID_ArmaDetenuta': arma_data[0],
+                'TipoArma': arma_data[1],
+                'MarcaArma': arma_data[2],
+                'ModelloArma': arma_data[3],
+                'Matricola': arma_data[4],
+                'CalibroArma': arma_data[5]
+            }
+
+            # Conferma eliminazione
+            reply = QMessageBox.question(self, "Conferma eliminazione",
+                                         f"Sei sicuro di voler eliminare questa arma?\nMatricola: {arma_dict['Matricola']}\nMarca: {arma_dict['MarcaArma']}\nModello: {arma_dict['ModelloArma']}",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+            if reply == QMessageBox.Yes:
+                # Importa il dialogo per il motivo dell'eliminazione
+                from ArmiDialog import DialogoMotivoEliminazione
+
+                # Crea e mostra il dialogo per la motivazione
+                dialogo_motivo = DialogoMotivoEliminazione(arma_dict, self)
+                if dialogo_motivo.exec_() != QDialog.Accepted:
+                    return  # L'utente ha annullato l'eliminazione
+
+                # Ottieni il motivo completo formattato
+                motivo_completo = dialogo_motivo.get_motivo_completo()
+
+                # Recupera i dati del detentore (cedente)
+                cursor.execute("""
+                    SELECT Cognome, Nome, CodiceFiscale 
+                    FROM detentori 
+                    WHERE ID_Detentore = ?
+                """, (detentore_id,))
+                detentore_data = cursor.fetchone()
+
+                # Ottieni la data corrente per il trasferimento
+                from PyQt5.QtCore import QDate, QDateTime
+                data_trasferimento = QDate.currentDate().toString("yyyy-MM-dd")
+                timestamp = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
+
+                # Registra l'eliminazione nella tabella trasferimenti
+                cursor.execute("""
+                    INSERT INTO trasferimenti 
+                    (ID_Arma, ID_Detentore_Cedente, ID_Detentore_Ricevente, Data_Trasferimento, 
+                     Motivo_Trasferimento, Note, Timestamp_Registrazione,
+                     MarcaArma, ModelloArma, Matricola, CalibroArma, TipoArma,
+                     Cedente_Cognome, Cedente_Nome, Cedente_CodiceFiscale)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    arma_id,  # ID_Arma
+                    detentore_id,  # ID_Detentore_Cedente
+                    -1,  # ID_Detentore_Ricevente (usiamo -1 come valore speciale per "eliminato")
+                    data_trasferimento,  # Data_Trasferimento
+                    "ELIMINAZIONE",  # Motivo_Trasferimento
+                    motivo_completo,  # Note
+                    timestamp,  # Timestamp_Registrazione
+                    arma_dict['MarcaArma'],  # MarcaArma
+                    arma_dict['ModelloArma'],  # ModelloArma
+                    arma_dict['Matricola'],  # Matricola
+                    arma_dict['CalibroArma'],  # CalibroArma
+                    arma_dict['TipoArma'],  # TipoArma
+                    detentore_data[0] if detentore_data else '',  # Cedente_Cognome
+                    detentore_data[1] if detentore_data else '',  # Cedente_Nome
+                    detentore_data[2] if detentore_data else ''  # Cedente_CodiceFiscale
+                ))
+
+                # Elimina l'arma dalla tabella armi
                 cursor.execute("DELETE FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
                 conn.commit()
-                conn.close()
-                # Ricarica la tabella
+
+                QMessageBox.information(self, "Eliminazione completata",
+                                        "L'arma è stata eliminata con successo.\nMotivo registrato nello storico.")
+
+                # Ricarica la tabella delle armi
                 self.carica_armi()
-                QMessageBox.information(self, "Successo", "Arma eliminata con successo!")
-            except Exception as e:
-                QMessageBox.critical(self, "Errore", f"Errore durante l'eliminazione dell'arma: {str(e)}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante l'eliminazione: {str(e)}")
+            print(f"Errore durante l'eliminazione dell'arma: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            if 'conn' in locals() and conn:
+                conn.close()
 
     def update_sigla_provincia_nascita(self):
         """Aggiorna la sigla provincia di nascita in base al comune selezionato"""
@@ -839,6 +937,417 @@ class InserisciDetentoreDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Impossibile calcolare il codice fiscale:\n{e}")
 
+    def stampa_denuncia_armi(self):
+        """Genera e stampa una denuncia di detenzione armi con layout professionale e dettagli completi"""
+        if not self.detentore_data or not self.detentore_data.get('id'):
+            QMessageBox.warning(self, "Attenzione", "Nessun detentore selezionato.")
+            return
+
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+            detentore_id = self.detentore_data.get('id')
+
+            # Recupera i dati del detentore
+            cursor.execute("""
+                SELECT Cognome, Nome, CodiceFiscale, DataNascita, LuogoNascita, SiglaProvinciaNascita,
+                       ComuneResidenza, SiglaProvinciaResidenza, TipoVia, Via, Civico, Telefono,
+                       NumeroPortoArmi, DataRilascio, EnteRilascio
+                FROM detentori 
+                WHERE ID_Detentore = ?
+            """, (detentore_id,))
+            detentore = cursor.fetchone()
+
+            if not detentore:
+                QMessageBox.warning(self, "Attenzione", "Detentore non trovato nel database.")
+                return
+
+            # Recupera le armi raggruppate per categoria con tutti i dettagli aggiuntivi
+            cursor.execute("""
+                SELECT CategoriaArma, TipoArma, MarcaArma, ModelloArma, Matricola, CalibroArma, 
+                       CaricamentoArma, ArmaLungaCorta, DataAcquisto, NoteArma,
+                       TipoCedente, CognomeCedente, NomeCedente, 
+                       TipoCanna, MatricolaCanna, LunghezzaCanna, NumeroCanne,
+                       TipoMunizioni, QuantitaMunizioni, TipoBossolo
+                FROM armi 
+                WHERE ID_Detentore = ?
+                ORDER BY CategoriaArma, TipoArma, MarcaArma, ModelloArma
+            """, (detentore_id,))
+            armi = cursor.fetchall()
+
+            if not armi:
+                QMessageBox.warning(self, "Attenzione", "Nessuna arma trovata per questo detentore.")
+                return
+
+            # Ottieni data per il documento
+            from PyQt5.QtGui import QTextDocument
+            from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog
+            from datetime import datetime
+
+            current_date = datetime.now().strftime('%d/%m/%Y')
+            current_time = datetime.now().strftime('%H:%M')
+            current_year = datetime.now().year
+
+            # Raggruppa le armi per categoria
+            armi_by_categoria = {}
+            for arma in armi:
+                categoria = arma[0] or "NON SPECIFICATA"
+                if categoria not in armi_by_categoria:
+                    armi_by_categoria[categoria] = []
+                armi_by_categoria[categoria].append(arma)
+
+            # Crea il documento HTML con stile professionale
+            html = f"""
+            <html>
+            <head>
+                <style>
+                    @page {{ size: A4; margin: 10mm; }}
+                    body {{ 
+                        font-family: 'Arial', sans-serif;
+                        margin: 0;
+                        padding: 0;
+                        color: #333;
+                        line-height: 1.5;
+                        font-size: 10pt;
+                    }}
+                    .header {{ 
+                        text-align: center;
+                        border-bottom: 2px solid #002855;
+                        padding-bottom: 10px;
+                        margin-bottom: 20px;
+                    }}
+                    .document-title {{
+                        font-size: 22pt;
+                        font-weight: bold;
+                        color: #002855;
+                        margin-bottom: 5px;
+                    }}
+                    .document-subtitle {{
+                        font-size: 14pt;
+                        color: #444;
+                        margin-bottom: 15px;
+                    }}
+                    .official {{
+                        margin: 0 auto;
+                        text-align: center;
+                        font-size: 9pt;
+                        margin-bottom: 10px;
+                    }}
+                    .section {{
+                        margin-bottom: 20px;
+                        page-break-inside: avoid;
+                    }}
+                    .section-title {{
+                        font-size: 16pt; /* Increased for emphasis */
+                        color: #002855;
+                        border-bottom: 2px solid #002855; /* Thicker line */
+                        margin-bottom: 10px;
+                        padding-bottom: 5px;
+                    }}
+                    .detentore-info {{
+                        border: 1px solid #ccc;
+                        padding: 15px;
+                        background-color: #f9f9f9;
+                        margin-bottom: 20px;
+                    }}
+                    .detentore-info-title {{
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                        color: #002855;
+                        font-size: 12pt;
+                    }}
+                    .detentore-data {{
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        grid-gap: 10px;
+                    }}
+                    .info-row {{
+                        margin-bottom: 8px;
+                    }}
+                    .info-row .label {{
+                        font-weight: bold;
+                        margin-right: 5px;
+                    }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 15px;
+                        font-size: 9pt;
+                    }}
+                    th {{
+                        background-color: #002855;
+                        color: white;
+                        text-align: left;
+                        padding: 8px; /* Increased padding */
+                        font-size: 10pt; /* Slightly larger font */
+                        border: 1px solid #ddd; /* Added border */
+                    }}
+                    td {{
+                        padding: 8px; /* Increased padding */
+                        border-bottom: 1px solid #ddd;
+                        font-size: 9pt;
+                        vertical-align: top;
+                        border: 1px solid #ddd; /* Added border */
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f2f2f2;
+                    }}
+                    .category {{
+                        background-color: #e6eef7;
+                        padding: 8px;
+                        font-weight: bold;
+                        border-left: 4px solid #002855;
+                        margin-top: 20px;
+                        margin-bottom: 10px;
+                    }}
+                    .summary {{
+                        font-weight: bold;
+                        margin-top: 15px;
+                        font-size: 12pt;
+                        color: #002855;
+                        border-top: 1px solid #ddd;
+                        padding-top: 10px;
+                    }}
+                    .signature-area {{
+                        margin-top: 40px;
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        grid-gap: 20px;
+                    }}
+                    .signature-box {{
+                        border-top: 1px solid #333;
+                        padding-top: 5px;
+                        margin-top: 50px;
+                        text-align: center;
+                    }}
+                    .official-area {{
+                        margin-top: 30px;
+                        border: 1px dashed #999;
+                        height: 80px;
+                        text-align: center;
+                        padding-top: 30px;
+                        color: #666;
+                        margin-bottom: 20px;
+                    }}
+                    .footer {{
+                        margin-top: 40px;
+                        font-size: 8pt;
+                        text-align: center;
+                        color: #666;
+                        padding-top: 10px;
+                        border-top: 1px solid #ddd;
+                    }}
+                    .page-number {{
+                        text-align: right;
+                        font-size: 8pt;
+                        color: #666;
+                        margin-top: 10px;
+                    }}
+                    .details {{
+                        font-size: 9pt; /* Adjusted font size */
+                        color: #555;
+                    }}
+                    .details-header {{
+                        font-weight: bold;
+                        margin-top: 3px;
+                    }}
+                    .details-text {{
+                        margin-left: 5px;
+                    }}
+                    .acquisition-info {{
+                        border-top: 1px dotted #ccc;
+                        margin-top: 5px;
+                        padding-top: 3px;
+                    }}
+                    .hidden-break {{ 
+                        page-break-after: always;
+                        visibility: hidden;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="official">REPUBBLICA ITALIANA</div>
+                    <div class="document-title">DENUNCIA DI DETENZIONE ARMI</div>
+                    <div class="document-subtitle">Art. 38 R.D. 18 giugno 1931, n. 773 (T.U.L.P.S.)</div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">DATI DEL DICHIARANTE</div>
+                    <div class="detentore-info">
+                        <div class="detentore-data">
+                            <div>
+                                <div class="info-row"><span class="label">Cognome:</span> {detentore[0]}</div>
+                                <div class="info-row"><span class="label">Nome:</span> {detentore[1]}</div>
+                                <div class="info-row"><span class="label">Codice Fiscale:</span> {detentore[2]}</div>
+                                <div class="info-row"><span class="label">Nato il:</span> {detentore[3]}</div>
+                                <div class="info-row"><span class="label">Luogo di nascita:</span> {detentore[4]} ({detentore[5]})</div>
+                            </div>
+                            <div>
+                                <div class="info-row"><span class="label">Residente a:</span> {detentore[6]} ({detentore[7]})</div>
+                                <div class="info-row"><span class="label">Indirizzo:</span> {detentore[8]} {detentore[9]} {detentore[10]}</div>
+                                <div class="info-row"><span class="label">Telefono:</span> {detentore[11] or "N/D"}</div>
+                                <div class="info-row"><span class="label">Titolo porto d'armi n°:</span> {detentore[12] or "N/D"}</div>
+                                <div class="info-row"><span class="label">Rilasciato il:</span> {detentore[13] or "N/D"} <span class="label">da:</span> {detentore[14] or "N/D"}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">DICHIARAZIONE DI POSSESSO ARMI</div>
+                    <p>
+                        Il sottoscritto <b>{detentore[0]} {detentore[1]}</b>, sotto la propria responsabilità e consapevole delle sanzioni penali 
+                        previste dall'art. 76 del D.P.R. 445/2000 in caso di false dichiarazioni, dichiara di detenere, 
+                        presso la propria residenza sopra indicata, le seguenti armi:
+                    </p>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">ARMI DETENUTE</div>
+            """
+
+            # Numerazione progressiva per tutte le armi
+            counter = 1
+
+            # Aggiunge le tabelle per ogni categoria di armi
+            for categoria, armi_categoria in armi_by_categoria.items():
+                html += f"""
+                <div class="category">{categoria} ({len(armi_categoria)})</div>
+                <table>
+                    <tr>
+                        <th style="width: 3%">N.</th>
+                        <th style="width: 8%">Tipo</th>
+                        <th style="width: 12%">Marca</th>
+                        <th style="width: 12%">Modello</th>
+                        <th style="width: 10%">Matricola</th>
+                        <th style="width: 8%">Calibro</th>
+                        <th style="width: 8%">Caricamento</th>
+                        <th style="width: 39%">Dettagli aggiuntivi</th>
+                    </tr>
+                """
+
+                for arma in armi_categoria:
+                    # Dati principali
+                    tipo = arma[1] or "N/D"
+                    marca = arma[2] or "N/D"
+                    modello = arma[3] or "N/D"
+                    matricola = arma[4] or "N/D"
+                    calibro = arma[5] or "N/D"
+                    caricamento = arma[6] or "N/D"
+                    tipo_arma = arma[7] or ""
+                    data_acquisto = arma[8] or "N/D"
+                    note = arma[9] or ""
+
+                    # Dati cedente/venditore
+                    tipo_cedente = arma[10] or "N/D"
+                    cognome_cedente = arma[11] or "N/D"
+                    nome_cedente = arma[12] or "N/D"
+
+                    # Dati canna
+                    tipo_canna = arma[13] or "N/D"
+                    matricola_canna = arma[14] or "N/D"
+                    lunghezza_canna = arma[15] or "N/D"
+                    numero_canne = arma[16] or "N/D"
+
+                    # Dati munizioni
+                    tipo_munizioni = arma[17] or "N/D"
+                    quantita_munizioni = arma[18] or "N/D"
+                    tipo_bossolo = arma[19] or "N/D"
+
+                    # Formatta i dettagli aggiuntivi
+                    dettagli_html = f"""
+                    <div class="details">
+                        <div><span class="details-header">Canna:</span> <span class="details-text">{tipo_canna}, Matricola: {matricola_canna}, Lunghezza: {lunghezza_canna}, N° canne: {numero_canne}</span></div>
+                        <div><span class="details-header">Munizioni:</span> <span class="details-text">Tipo: {tipo_munizioni}, Quantità: {quantita_munizioni}, Bossolo: {tipo_bossolo}</span></div>
+                        <div class="acquisition-info">
+                            <span class="details-header">Acquisizione:</span> <span class="details-text">Data: {data_acquisto}, da: {cognome_cedente} {nome_cedente} ({tipo_cedente})</span>
+                        </div>
+                        {f'<div><span class="details-header">Note:</span> <span class="details-text">{note}</span></div>' if note else ''}
+                    </div>
+                    """
+
+                    html += f"""
+                    <tr>
+                        <td>{counter}</td>
+                        <td>{tipo}</td>
+                        <td>{marca}</td>
+                        <td>{modello}</td>
+                        <td>{matricola}</td>
+                        <td>{calibro}</td>
+                        <td>{caricamento}</td>
+                        <td>{dettagli_html}</td>
+                    </tr>
+                    """
+                    counter += 1
+
+                html += "</table>"
+
+                # Aggiungi un'interruzione di pagina se ci sono più di 10 armi in una categoria
+                if len(armi_categoria) > 10:
+                    html += '<div class="hidden-break"></div>'
+
+            # Riepilogo totale
+            total_armi = len(armi)
+            html += f"""
+                <div class="summary">
+                    TOTALE ARMI DETENUTE: {total_armi}
+                </div>
+
+                <p>
+                    Il sottoscritto dichiara altresì di essere in possesso dei requisiti psicofisici previsti dalla normativa vigente 
+                    e che le armi sopra elencate sono detenute presso la propria residenza in appositi locali che garantiscono la 
+                    necessaria sicurezza.
+                </p>
+
+                <div class="signature-area">
+                    <div>
+                        <div class="signature-box">
+                            IL DICHIARANTE
+                        </div>
+                    </div>
+                    <div>
+                        <div class="signature-box">
+                            LUOGO E DATA<br>
+                            {detentore[6]}, {current_date}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="official-area">
+                    SPAZIO RISERVATO ALL'UFFICIO<br>
+                    (TIMBRO E FIRMA)
+                </div>
+
+                <div class="footer">
+                    Dichiarazione resa ai sensi dell'art. 38 R.D. 18 giugno 1931, n. 773 (T.U.L.P.S.) e successive modifiche.<br>
+                    Documento generato automaticamente dal sistema di gestione armi in data {current_date} alle ore {current_time}.
+                </div>
+
+                <div class="page-number">Pagina 1</div>
+            </body>
+            </html>
+            """
+
+            # Mostra l'anteprima di stampa
+            doc = QTextDocument()
+            doc.setHtml(html)
+
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setPageSize(QPrinter.A4)
+            preview = QPrintPreviewDialog(printer, self)
+            preview.paintRequested.connect(lambda p: doc.print_(p))
+            preview.exec_()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore",
+                                 f"Si è verificato un errore durante la preparazione della denuncia: {str(e)}")
+            print(f"Errore nella stampa della denuncia: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            if 'conn' in locals() and conn:
+                conn.close()
 
 def load_comuni():
     """Carica la lista dei comuni dal database"""
@@ -867,6 +1376,9 @@ def load_province():
     except Exception as e:
         print("Errore nel caricamento delle province:", e)
         return []
+
+
+
 
 class TestWidget(QWidget):
     def __init__(self):
