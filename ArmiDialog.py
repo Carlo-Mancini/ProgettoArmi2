@@ -743,7 +743,8 @@ class ArmaDialog(QDialog):
                     TipoViaResidenzaCedente = ?,
                     IndirizzoResidenzaCedente = ?,
                     CivicoResidenzaCedente = ?,
-                    TelefonoCedente = ?
+                    TelefonoCedente = ?,
+                    TipoCedente = 'PERSONA FISICA'
                 WHERE ID_ArmaDetenuta = ?
             """, (
                 detentore[0],  # Cognome
@@ -760,6 +761,7 @@ class ArmaDialog(QDialog):
                 self.arma_data['ID_ArmaDetenuta']
             ))
 
+            print(f"Tipo cedente impostato a PERSONA FISICA per l'arma {self.arma_data['ID_ArmaDetenuta']}")
             conn.commit()
             return True
 

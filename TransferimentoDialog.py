@@ -597,6 +597,19 @@ class TransferimentoDialog(QDialog):
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
 
+            # Impostiamo esplicitamente il tipo di cedente a PERSONA FISICA quando trasferiamo armi tra detentori
+            if using_db_detentore:
+                try:
+                    # Imposta sempre il tipo cedente a PERSONA FISICA per i trasferimenti tra detentori del database
+                    cursor.execute("""
+                        UPDATE armi 
+                        SET TipoCedente = 'PERSONA FISICA'
+                        WHERE ID_ArmaDetenuta = ?
+                    """, (self.arma_id,))
+                    print("Tipo cedente aggiornato a PERSONA FISICA durante il trasferimento")
+                except Exception as e:
+                    print(f"Errore nell'aggiornamento del tipo cedente: {e}")
+
             # Se stiamo trasferendo a un detentore interno, aggiorna il proprietario dell'arma
             if using_db_detentore:
                 cursor.execute("""
