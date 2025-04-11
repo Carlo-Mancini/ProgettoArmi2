@@ -67,6 +67,9 @@ class ArmaDialog(QDialog):
         # Tab 2: Dati Cedente
         self._create_cedente_tab()
 
+        # Tab 3: Luogo Detenzione
+        self._create_luogo_detenzione_tab()
+
         # Pulsanti
         self.saveButton = QPushButton("Salva Arma")
         self.saveButton.setMinimumWidth(120)
@@ -361,6 +364,53 @@ class ArmaDialog(QDialog):
 
         self.group_munition.setLayout(grid)
 
+    def _create_luogo_detenzione_tab(self):
+        """Crea la tab con i dettagli del luogo di detenzione dell'arma"""
+        self.tab_detenzione = QWidget()
+
+        # Creazione dei campi di testo
+        self.comuneDetenzioneEdit = QLineEdit()
+        self.provinciaDetenzioneEdit = QLineEdit()
+        self.tipoViaDetenzioneEdit = QLineEdit()
+        self.indirizzoDetenzioneEdit = QLineEdit()
+        self.civicoDetenzioneEdit = QLineEdit()
+        self.noteDetenzioneEdit = QLineEdit()
+
+        # Creazione del gruppo per i dati del luogo
+        group_detenzione = QGroupBox("Dati Luogo Detenzione")
+        grid = QGridLayout()
+
+        # Riga 1
+        grid.addWidget(QLabel("Comune:"), 0, 0)
+        grid.addWidget(self.comuneDetenzioneEdit, 0, 1)
+        grid.addWidget(QLabel("Provincia:"), 0, 2)
+        grid.addWidget(self.provinciaDetenzioneEdit, 0, 3)
+
+        # Riga 2
+        grid.addWidget(QLabel("Tipo Via:"), 1, 0)
+        grid.addWidget(self.tipoViaDetenzioneEdit, 1, 1)
+        grid.addWidget(QLabel("Indirizzo:"), 1, 2)
+        grid.addWidget(self.indirizzoDetenzioneEdit, 1, 3)
+
+        # Riga 3
+        grid.addWidget(QLabel("Civico:"), 2, 0)
+        grid.addWidget(self.civicoDetenzioneEdit, 2, 1)
+
+        group_detenzione.setLayout(grid)
+
+        # Note luogo detenzione
+        group_note = QGroupBox("Note Luogo Detenzione")
+        note_layout = QFormLayout()
+        note_layout.addRow("Note:", self.noteDetenzioneEdit)
+        group_note.setLayout(note_layout)
+
+        # Layout principale della tab
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(group_detenzione)
+        main_layout.addWidget(group_note)
+        main_layout.addStretch()
+        self.tab_detenzione.setLayout(main_layout)
+
     def _create_cedente_tab(self):
         self.tab_cedente = QWidget()
 
@@ -465,6 +515,7 @@ class ArmaDialog(QDialog):
         self.tab_widget = QTabWidget()
         self.tab_widget.addTab(self.tab_arma, "Arma")
         self.tab_widget.addTab(self.tab_cedente, "Cedente")
+        self.tab_widget.addTab(self.tab_detenzione, "Luogo Detenzione")  # Nuova tab
 
         # Layout pulsanti
         btn_layout = QHBoxLayout()
@@ -479,7 +530,6 @@ class ArmaDialog(QDialog):
         main_layout.addLayout(btn_layout)
 
         self.setLayout(main_layout)
-
     def _connect_signals(self):
         """Collega i segnali agli slot"""
         self.saveButton.clicked.connect(self.save_arma)
@@ -648,7 +698,6 @@ class ArmaDialog(QDialog):
         self.noteArmaEdit.setText(data.get('NoteArma', ''))
         self.cognomeCedenteEdit.setText(data.get('CognomeCedente', ''))
         self.nomeCedenteEdit.setText(data.get('NomeCedente', ''))
-        # RIMUOVI QUESTA RIGA: self.dataNascitaCedenteEdit.setText(data.get('DataNascitaCedente', ''))
         self.luogoNascitaCedenteEdit.setText(data.get('LuogoNascitaCedente', ''))
         self.siglaProvinciaResidenzaCedenteEdit.setText(data.get('SiglaProvinciaResidenzaCedente', ''))
         self.comuneResidenzaCedenteEdit.setText(data.get('ComuneResidenzaCedente', ''))
@@ -657,6 +706,14 @@ class ArmaDialog(QDialog):
         self.indirizzoResidenzaCedenteEdit.setText(data.get('IndirizzoResidenzaCedente', ''))
         self.civicoResidenzaCedenteEdit.setText(data.get('CivicoResidenzaCedente', ''))
         self.telefonoCedenteEdit.setText(data.get('TelefonoCedente', ''))
+
+        # Popola campi del luogo detenzione
+        self.comuneDetenzioneEdit.setText(data.get('ComuneDetenzione', ''))
+        self.provinciaDetenzioneEdit.setText(data.get('ProvinciaDetenzione', ''))
+        self.tipoViaDetenzioneEdit.setText(data.get('TipoViaDetenzione', ''))
+        self.indirizzoDetenzioneEdit.setText(data.get('IndirizzoDetenzione', ''))
+        self.civicoDetenzioneEdit.setText(data.get('CivicoDetenzione', ''))
+        self.noteDetenzioneEdit.setText(data.get('NoteDetenzione', ''))
 
         # Per i campi data
         if 'DataAcquisto' in data and data['DataAcquisto']:
@@ -772,8 +829,6 @@ class ArmaDialog(QDialog):
             if conn:
                 conn.close()
 
-    # Sostituisci il metodo save_arma() con questo:
-
     def save_arma(self):
         """Salva i dati dell'arma nel database"""
         try:
@@ -824,6 +879,13 @@ class ArmaDialog(QDialog):
             indirizzoResidenzaCedente = self.indirizzoResidenzaCedenteEdit.text()
             civicoResidenzaCedente = self.civicoResidenzaCedenteEdit.text()
             telefonoCedente = self.telefonoCedenteEdit.text()
+            # Raccogli i dati per il luogo di detenzione
+            comuneDetenzione = self.comuneDetenzioneEdit.text()
+            provinciaDetenzione = self.provinciaDetenzioneEdit.text()
+            tipoViaDetenzione = self.tipoViaDetenzioneEdit.text()
+            indirizzoDetenzione = self.indirizzoDetenzioneEdit.text()
+            civicoDetenzione = self.civicoDetenzioneEdit.text()
+            noteDetenzione = self.noteDetenzioneEdit.text()
 
             # Ottieni le date formattate in formato stringa per il salvataggio nel database
             dataAcquisto = self.dataAcquistoEdit.date().toString("dd/MM/yyyy")
@@ -833,16 +895,18 @@ class ArmaDialog(QDialog):
             print(f"DEBUG - Tipo cedente: {tipoCedente}")
 
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
-                # UPDATE per la modifica
+                # UPDATE per la modifica, aggiungiamo i nuovi campi
                 cursor.execute("""
                     UPDATE armi
                     SET TipoArma=?, MarcaArma=?, ModelloArma=?, TipologiaArma=?, Matricola=?, CalibroArma=?, MatricolaCanna=?, LunghezzaCanna=?, NumeroCanne=?,
                         ArmaLungaCorta=?, TipoCanna=?, CategoriaArma=?, FunzionamentoArma=?, CaricamentoArma=?, PunzoniArma=?, StatoProduzioneArma=?,
                         ExOrdDem=?, TipoMunizioni=?, QuantitaMunizioni=?, TipoBossolo=?, TipoCedente=?, NoteArma=?, CognomeCedente=?, NomeCedente=?,
                         DataNascitaCedente=?, LuogoNascitaCedente=?, SiglaProvinciaResidenzaCedente=?, ComuneResidenzaCedente=?, SiglaProvinciaNascitaCedente=?,
-                        TipoViaResidenzaCedente=?, IndirizzoResidenzaCedente=?, CivicoResidenzaCedente=?, TelefonoCedente=?, DataAcquisto=?
+                        TipoViaResidenzaCedente=?, IndirizzoResidenzaCedente=?, CivicoResidenzaCedente=?, TelefonoCedente=?, DataAcquisto=?,
+                        ComuneDetenzione=?, ProvinciaDetenzione=?, TipoViaDetenzione=?, IndirizzoDetenzione=?, CivicoDetenzione=?, NoteDetenzione=?
                     WHERE ID_ArmaDetenuta=?
                 """, (
+                    # ... parametri esistenti ...
                     tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma, matricolaCanna,
                     lunghezzaCanna, numeroCanne,
                     armaLungaCorta, tipoCanna, categoriaArma, funzionamentoArma, caricamentoArma, punzoniArma,
@@ -853,19 +917,24 @@ class ArmaDialog(QDialog):
                     siglaProvinciaNascitaCedente,
                     tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
                     dataAcquisto,
+                    # Nuovi parametri
+                    comuneDetenzione, provinciaDetenzione, tipoViaDetenzione, indirizzoDetenzione,
+                    civicoDetenzione, noteDetenzione,
                     self.arma_data.get('ID_ArmaDetenuta')
                 ))
-                print(f"DEBUG - Arma aggiornata con ID: {self.arma_data.get('ID_ArmaDetenuta')}")
             else:
-                # INSERT per un nuovo record
+                # INSERT per un nuovo record, aggiungiamo i nuovi campi
                 cursor.execute("""
                     INSERT INTO armi (ID_Detentore, TipoArma, MarcaArma, ModelloArma, TipologiaArma, Matricola, CalibroArma, MatricolaCanna, LunghezzaCanna,
                         NumeroCanne, ArmaLungaCorta, TipoCanna, CategoriaArma, FunzionamentoArma, CaricamentoArma, PunzoniArma, StatoProduzioneArma,
                         ExOrdDem, TipoMunizioni, QuantitaMunizioni, TipoBossolo, TipoCedente, NoteArma, CognomeCedente, NomeCedente, DataNascitaCedente,
                         LuogoNascitaCedente, SiglaProvinciaResidenzaCedente, ComuneResidenzaCedente, SiglaProvinciaNascitaCedente, TipoViaResidenzaCedente,
-                        IndirizzoResidenzaCedente, CivicoResidenzaCedente, TelefonoCedente, DataAcquisto)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        IndirizzoResidenzaCedente, CivicoResidenzaCedente, TelefonoCedente, DataAcquisto,
+                        ComuneDetenzione, ProvinciaDetenzione, TipoViaDetenzione, IndirizzoDetenzione, CivicoDetenzione, NoteDetenzione)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?)
                 """, (
+                    # ... parametri esistenti ...
                     self.detentore_id, tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma,
                     matricolaCanna, lunghezzaCanna,
                     numeroCanne, armaLungaCorta, tipoCanna, categoriaArma, funzionamentoArma, caricamentoArma,
@@ -875,8 +944,12 @@ class ArmaDialog(QDialog):
                     dataNascitaCedente, luogoNascitaCedente, siglaProvinciaResidenzaCedente, comuneResidenzaCedente,
                     siglaProvinciaNascitaCedente,
                     tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
-                    dataAcquisto
+                    dataAcquisto,
+                    # Nuovi parametri
+                    comuneDetenzione, provinciaDetenzione, tipoViaDetenzione, indirizzoDetenzione,
+                    civicoDetenzione, noteDetenzione
                 ))
+
                 print(f"DEBUG - Nuova arma inserita per detentore ID: {self.detentore_id}")
 
             conn.commit()
