@@ -14,6 +14,9 @@ try:
 except Exception as e:
     print(f"Errore nell'importare InserisciDetentoreDialog: {e}")
 
+# Importa le funzioni per la cache
+from Utility import get_comuni, get_province
+
 
 # Dialog per visualizzare la lista dei Detentori
 class DetentoriListDialog(QDialog):
@@ -58,11 +61,10 @@ class DetentoriListDialog(QDialog):
             columns = ["id", "nome", "cognome", "fascicoloPersonale", "dataNascita", "luogoNascita",
                        "siglaProvinciaNascita", "sesso", "codiceFiscale", "comuneResidenza", "siglaProvinciaResidenza",
                        "tipoVia", "via", "civico", "telefono", "tipologiaTitolo", "enteRilascio",
-                       "provinciaEnteRilascio",
-                       "dataRilascio", "numeroPortoArmi", "tipoLuogoDetenzione", "comuneDetenzione",
-                       "siglaProvinciaDetenzione",
-                       "tipoViaDetenzione", "viaDetenzione", "civicoDetenzione", "tipoDocumento", "numeroDocumento",
-                       "dataRilascioDocumento", "enteRilascioDocumento", "comuneEnteRilascioDocumento"]
+                       "provinciaEnteRilascio", "dataRilascio", "numeroPortoArmi", "tipoLuogoDetenzione",
+                       "comuneDetenzione", "siglaProvinciaDetenzione", "tipoViaDetenzione", "viaDetenzione",
+                       "civicoDetenzione", "tipoDocumento", "numeroDocumento", "dataRilascioDocumento",
+                       "enteRilascioDocumento", "comuneEnteRilascioDocumento"]
             self.detentori = [dict(zip(columns, row)) for row in rows]
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore nel caricamento dei detentori:\n{e}")
@@ -139,7 +141,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Gestione Armi - Programma Principale")
         self.resize(600, 400)
-
         self.setup_ui()
 
     def setup_ui(self):
@@ -161,7 +162,6 @@ class MainWindow(QMainWindow):
 
         # Pulsanti principali
         btn_layout = QVBoxLayout()
-
         self.btn_detentori = QPushButton("Gestione Detentori")
         self.btn_detentori.setMinimumHeight(50)
         self.btn_detentori.setIcon(QIcon.fromTheme("system-users"))
@@ -172,7 +172,6 @@ class MainWindow(QMainWindow):
 
         btn_layout.addWidget(self.btn_detentori)
         btn_layout.addWidget(self.btn_storico)
-
         layout.addLayout(btn_layout)
         layout.addStretch()
 
@@ -182,7 +181,6 @@ class MainWindow(QMainWindow):
 
     def open_detentori(self):
         try:
-            # Importa la nuova versione del dialog
             from DetentoriListDialog import DetentoriListDialog
             dialog = DetentoriListDialog(self)
             dialog.exec_()
@@ -192,7 +190,6 @@ class MainWindow(QMainWindow):
 
     def open_ricerca_storico(self):
         try:
-            # Usa la classe RicercaArmaDialog dal file RicercaArmaDialog.py
             from RicercaArmaDialog import RicercaArmaDialog
             dialog = RicercaArmaDialog(self)
             dialog.exec_()
@@ -205,9 +202,12 @@ if __name__ == "__main__":
     try:
         print("Avvio dell'applicazione...")
         app = QApplication(sys.argv)
-
-        # Utilizziamo il tema Fusion che è più moderno e professionale
         app.setStyle(QStyleFactory.create("Fusion"))
+
+        # Carica in anticipo i dati statici dalla cache
+        comuni = get_comuni()
+        province = get_province()
+        print("Caricati", len(comuni), "comuni e", len(province), "province.")
 
         print("Creazione della finestra principale...")
         window = MainWindow()

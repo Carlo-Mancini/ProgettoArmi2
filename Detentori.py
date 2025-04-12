@@ -1,15 +1,23 @@
 import sqlite3
+import threading
+from datetime import datetime
+import os
+import sys
 from PyQt5.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QPushButton, QVBoxLayout, QGroupBox,
     QListWidget, QTabWidget, QWidget, QHBoxLayout, QListWidgetItem, QComboBox,
     QCompleter, QTableWidget, QGridLayout, QLabel, QScrollArea, QSizePolicy,
-    QMessageBox, QHeaderView, QTableWidgetItem
+    QMessageBox, QHeaderView, QTableWidgetItem, QFileDialog
 )
-from Utility import convert_all_lineedits_to_uppercase
+from docxtpl import DocxTemplate
+from PyQt5.QtCore import Qt, QSortFilterProxyModel, QStringListModel
+from PyQt5.QtWidgets import QComboBox, QCompleter
+from Utility import get_comuni, get_province
 from PyQt5.QtCore import Qt
 from Utility import get_sigla_provincia, DateInputWidget
 from PyQt5.QtGui import QIcon, QTextDocument
-
+from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog #
+from Utility import UpperCaseLineEdit
 class InserisciDetentoreDialog(QDialog):
     def __init__(self, detentore_data=None):
         super().__init__()
@@ -50,8 +58,6 @@ class InserisciDetentoreDialog(QDialog):
             self.populate_fields(detentore_data)
             self.carica_armi()
 
-        # Converti tutto in maiuscolo
-        convert_all_lineedits_to_uppercase(self)
 
     def create_dati_tab(self):
         """Crea la tab con i dati personali e di contatto del detentore"""
@@ -75,39 +81,35 @@ class InserisciDetentoreDialog(QDialog):
 
     def create_personal_data_widgets(self):
         """Crea i widget per i dati personali"""
-        self.nomeEdit = QLineEdit()
-        self.cognomeEdit = QLineEdit()
+        self.nomeEdit = UpperCaseLineEdit()
+        self.cognomeEdit = UpperCaseLineEdit()
 
         # Sostituisci QLineEdit con DateInputWidget per la data di nascita
         self.dataNascitaEdit = DateInputWidget()
         self.dataNascitaEdit.setDisplayFormat("dd/MM/yyyy")
 
         # Combo per il luogo di nascita
-        self.luogoNascitaCombo = QComboBox()
-        self.luogoNascitaCombo.setEditable(True)
-        comuni = load_comuni()
-        self.luogoNascitaCombo.addItems(comuni)
+        self.luogoNascitaCombo = FilterableComboBox()
+        comuni = get_comuni()
+        self.luogoNascitaCombo.setItems(comuni)
         self.luogoNascitaCombo.setCurrentIndex(-1)
         self.luogoNascitaCombo.clearEditText()
 
-        completer = QCompleter(comuni)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.luogoNascitaCombo.setCompleter(completer)
 
-        self.siglaProvinciaNascitaEdit = QLineEdit()
+        self.siglaProvinciaNascitaEdit = UpperCaseLineEdit()
         self.siglaProvinciaNascitaEdit.setMaximumWidth(60)
-        self.sessoEdit = QLineEdit()
+        self.sessoEdit = UpperCaseLineEdit()
         self.sessoEdit.setMaximumWidth(60)
-        self.codiceFiscaleEdit = QLineEdit()
+        self.codiceFiscaleEdit = UpperCaseLineEdit()
         self.btnCalcolaCF = QPushButton("Calcola CF")
         self.btnCalcolaCF.setMaximumWidth(100)
 
     def create_contact_widgets(self):
         """Crea i widget per i contatti"""
-        self.comuneResidenzaCombo = QComboBox()
-        self.comuneResidenzaCombo.setEditable(True)
-        comuni = load_comuni()
-        self.comuneResidenzaCombo.addItems(comuni)
+        self.comuneResidenzaCombo = FilterableComboBox()
+        from Utility import get_comuni
+        comuni = get_comuni()
+        self.comuneResidenzaCombo.setItems(comuni)
         self.comuneResidenzaCombo.setCurrentIndex(-1)
         self.comuneResidenzaCombo.clearEditText()
 
@@ -115,14 +117,14 @@ class InserisciDetentoreDialog(QDialog):
         completer_residenza.setCaseSensitivity(Qt.CaseInsensitive)
         self.comuneResidenzaCombo.setCompleter(completer_residenza)
 
-        self.siglaProvinciaResidenzaEdit = QLineEdit()
+        self.siglaProvinciaResidenzaEdit = UpperCaseLineEdit()
         self.siglaProvinciaResidenzaEdit.setMaximumWidth(60)
-        self.tipoViaEdit = QLineEdit()
+        self.tipoViaEdit = UpperCaseLineEdit()
         self.tipoViaEdit.setMaximumWidth(100)
-        self.viaEdit = QLineEdit()
-        self.civicoEdit = QLineEdit()
+        self.viaEdit = UpperCaseLineEdit()
+        self.civicoEdit = UpperCaseLineEdit()
         self.civicoEdit.setMaximumWidth(80)
-        self.telefonoEdit = QLineEdit()
+        self.telefonoEdit = UpperCaseLineEdit()
 
     def create_personal_data_group(self):
         """Crea il gruppo per i dati personali"""
@@ -214,16 +216,16 @@ class InserisciDetentoreDialog(QDialog):
     def create_documents_widgets(self):
         """Crea i widget per i documenti"""
         # Fascicolo e titolo
-        self.fascicoloPersonaleEdit = QLineEdit()
-        self.tipologiaTitoloEdit = QLineEdit()
+        self.fascicoloPersonaleEdit = UpperCaseLineEdit()
+        self.tipologiaTitoloEdit = UpperCaseLineEdit()
 
         # Ente rilascio
-        self.enteRilascioEdit = QLineEdit()
+        self.enteRilascioEdit = UpperCaseLineEdit()
 
         # Combobox province per ente rilascio
         self.provinciaEnteRilascioCombo = QComboBox()
         self.provinciaEnteRilascioCombo.setEditable(True)
-        province = load_province()
+        province = get_province()
         self.provinciaEnteRilascioCombo.addItems(province)
         self.provinciaEnteRilascioCombo.setCurrentIndex(-1)
         self.provinciaEnteRilascioCombo.clearEditText()
@@ -235,15 +237,15 @@ class InserisciDetentoreDialog(QDialog):
         self.dataRilascioEdit = DateInputWidget()
         self.dataRilascioEdit.setDisplayFormat("dd/MM/yyyy")
 
-        self.numeroPortoArmiEdit = QLineEdit()
+        self.numeroPortoArmiEdit = UpperCaseLineEdit()
 
         # Luogo detenzione
-        self.tipoLuogoDetenzioneEdit = QLineEdit()
+        self.tipoLuogoDetenzioneEdit = UpperCaseLineEdit()
 
         # Converto comuneDetenzioneEdit da QLineEdit a QComboBox
         self.comuneDetenzioneCombo = QComboBox()
         self.comuneDetenzioneCombo.setEditable(True)
-        comuni = load_comuni()
+        comuni = get_comuni()
         self.comuneDetenzioneCombo.addItems(comuni)
         self.comuneDetenzioneCombo.setCurrentIndex(-1)
         self.comuneDetenzioneCombo.clearEditText()
@@ -252,23 +254,23 @@ class InserisciDetentoreDialog(QDialog):
         completer_detenzione.setCaseSensitivity(Qt.CaseInsensitive)
         self.comuneDetenzioneCombo.setCompleter(completer_detenzione)
 
-        self.siglaProvinciaDetenzioneEdit = QLineEdit()
+        self.siglaProvinciaDetenzioneEdit = UpperCaseLineEdit()
         self.siglaProvinciaDetenzioneEdit.setMaximumWidth(60)
-        self.tipoViaDetenzioneEdit = QLineEdit()
+        self.tipoViaDetenzioneEdit = UpperCaseLineEdit()
         self.tipoViaDetenzioneEdit.setMaximumWidth(100)
-        self.viaDetenzioneEdit = QLineEdit()
-        self.civicoDetenzioneEdit = QLineEdit()
+        self.viaDetenzioneEdit = UpperCaseLineEdit()
+        self.civicoDetenzioneEdit = UpperCaseLineEdit()
         self.civicoDetenzioneEdit.setMaximumWidth(80)
 
         # Documento identità
-        self.tipoDocumentoEdit = QLineEdit()
-        self.numeroDocumentoEdit = QLineEdit()
+        self.tipoDocumentoEdit = UpperCaseLineEdit()
+        self.numeroDocumentoEdit = UpperCaseLineEdit()
 
         # Sostituzione per la data di rilascio documento
         self.dataRilascioDocumentoEdit = DateInputWidget()
         self.dataRilascioDocumentoEdit.setDisplayFormat("dd/MM/yyyy")
 
-        self.enteRilascioDocumentoEdit = QLineEdit()
+        self.enteRilascioDocumentoEdit = UpperCaseLineEdit()
 
         # Converto comuneEnteRilascioDocumentoEdit da QLineEdit a QComboBox
         self.comuneEnteRilascioDocumentoCombo = QComboBox()
@@ -527,9 +529,11 @@ class InserisciDetentoreDialog(QDialog):
                 self.comuneEnteRilascioDocumentoCombo.setEditText(data.get('comuneEnteRilascioDocumento'))
 
     def save_detentore(self):
-        """Salva o aggiorna i dati del detentore"""
+        """Salva o aggiorna i dati del detentore utilizzando la connessione persistente fornita dal DatabaseManager."""
         print("Salvataggio record Detentore in corso...")
-        conn = sqlite3.connect("gestione_armi.db")
+        from Detentori import DatabaseManager  # Assicurati che l'import sia corretto
+        db_manager = DatabaseManager()
+        conn = db_manager.get_connection()
         cursor = conn.cursor()
 
         # Raccolta dati dai campi
@@ -577,14 +581,13 @@ class InserisciDetentoreDialog(QDialog):
                     WHERE ID_Detentore=?
                 """, (
                     nome, cognome, fascicoloPersonale, dataNascita, luogoNascita, siglaProvinciaNascita, sesso,
-                    codiceFiscale,
-                    comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono, tipologiaTitolo,
-                    enteRilascio,
-                    provinciaEnteRilascio, dataRilascio, numeroPortoArmi, tipoLuogoDetenzione, comuneDetenzione,
-                    siglaProvinciaDetenzione,
+                    codiceFiscale, comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono,
+                    tipologiaTitolo, enteRilascio, provinciaEnteRilascio, dataRilascio, numeroPortoArmi,
+                    tipoLuogoDetenzione, comuneDetenzione, siglaProvinciaDetenzione,
                     tipoViaDetenzione, viaDetenzione, civicoDetenzione, tipoDocumento, numeroDocumento,
-                    dataRilascioDocumento,
-                    enteRilascioDocumento, comuneEnteRilascioDocumento, self.detentore_data.get('id')))
+                    dataRilascioDocumento, enteRilascioDocumento, comuneEnteRilascioDocumento,
+                    self.detentore_data.get('id')
+                ))
 
                 QMessageBox.information(self, "Successo", "Detentore aggiornato con successo!")
             else:
@@ -598,14 +601,12 @@ class InserisciDetentoreDialog(QDialog):
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     nome, cognome, fascicoloPersonale, dataNascita, luogoNascita, siglaProvinciaNascita, sesso,
-                    codiceFiscale,
-                    comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono, tipologiaTitolo,
-                    enteRilascio,
-                    provinciaEnteRilascio, dataRilascio, numeroPortoArmi, tipoLuogoDetenzione, comuneDetenzione,
-                    siglaProvinciaDetenzione,
+                    codiceFiscale, comuneResidenza, siglaProvinciaResidenza, tipoVia, via, civico, telefono,
+                    tipologiaTitolo, enteRilascio, provinciaEnteRilascio, dataRilascio, numeroPortoArmi,
+                    tipoLuogoDetenzione, comuneDetenzione, siglaProvinciaDetenzione,
                     tipoViaDetenzione, viaDetenzione, civicoDetenzione, tipoDocumento, numeroDocumento,
-                    dataRilascioDocumento,
-                    enteRilascioDocumento, comuneEnteRilascioDocumento))
+                    dataRilascioDocumento, enteRilascioDocumento, comuneEnteRilascioDocumento
+                ))
 
                 QMessageBox.information(self, "Successo", "Nuovo detentore salvato con successo!")
 
@@ -614,8 +615,10 @@ class InserisciDetentoreDialog(QDialog):
 
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante il salvataggio: {str(e)}")
-        finally:
-            conn.close()
+            # Nel caso di errori, potresti voler effettuare un rollback
+            conn.rollback()
+
+        # Non chiudiamo qui la connessione perché la gestiamo centralmente
 
     def delete_detentore(self):
         """Elimina il detentore dal database"""
@@ -624,13 +627,20 @@ class InserisciDetentoreDialog(QDialog):
             return
 
         # Conferma eliminazione
-        reply = QMessageBox.question(self, "Conferma eliminazione",
-                                     "Sei sicuro di voler eliminare questo detentore?\nTutte le armi associate verranno eliminate.",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.question(
+            self,
+            "Conferma eliminazione",
+            "Sei sicuro di voler eliminare questo detentore?\nTutte le armi associate verranno eliminate.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
 
         if reply == QMessageBox.Yes:
             try:
-                conn = sqlite3.connect("gestione_armi.db")
+                # Importa DatabaseManager dal file Detentori.py
+                from Detentori import DatabaseManager
+                db_manager = DatabaseManager()
+                conn = db_manager.get_connection()
                 cursor = conn.cursor()
 
                 # Elimina prima le armi associate
@@ -642,10 +652,10 @@ class InserisciDetentoreDialog(QDialog):
                 conn.commit()
                 QMessageBox.information(self, "Successo", "Detentore e armi associate eliminati con successo!")
                 self.accept()
+
             except Exception as e:
                 QMessageBox.critical(self, "Errore", f"Si è verificato un errore durante l'eliminazione: {str(e)}")
-            finally:
-                conn.close()
+            # Non chiudiamo la connessione qui per mantenere la connessione persistente gestita centralmente
 
     def modifica_arma_selected(self):
         """Modifica l'arma selezionata nella tabella"""
@@ -665,16 +675,20 @@ class InserisciDetentoreDialog(QDialog):
             arma_id = id_item.data(Qt.UserRole)
 
             try:
-                conn = sqlite3.connect("gestione_armi.db")
+                # Importa DatabaseManager dal file in cui è definito (ad es. Detentori.py)
+                from Detentori import DatabaseManager
+                db_manager = DatabaseManager()
+                conn = db_manager.get_connection()
                 cursor = conn.cursor()
+
                 cursor.execute("SELECT * FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
                 row_data = cursor.fetchone()
-                conn.close()
+                # Non chiudiamo la connessione qui; la gestione centralizzata si occuperà di chiuderla al termine dell'app
 
                 if row_data:
                     columns = ["ID_ArmaDetenuta", "ID_Detentore", "TipoArma", "MarcaArma", "ModelloArma",
-                               "TipologiaArma",
-                               "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna", "NumeroCanne",
+                               "TipologiaArma", "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna",
+                               "NumeroCanne",
                                "ArmaLungaCorta", "TipoCanna", "CategoriaArma", "FunzionamentoArma", "CaricamentoArma",
                                "PunzoniArma", "StatoProduzioneArma", "ExOrdDem", "TipoMunizioni", "QuantitaMunizioni",
                                "TipoBossolo", "TipoCedente", "NoteArma", "CognomeCedente", "NomeCedente",
@@ -701,7 +715,10 @@ class InserisciDetentoreDialog(QDialog):
             return
 
         try:
-            conn = sqlite3.connect("gestione_armi.db")
+            # Importa il singleton DatabaseManager dal file Detentori.py
+            from Detentori import DatabaseManager
+            db_manager = DatabaseManager()
+            conn = db_manager.get_connection()
             cursor = conn.cursor()
             det_id = self.detentore_data.get('id')
             print(f"DEBUG - carica_armi: Caricamento armi per detentore ID={det_id}")
@@ -745,9 +762,6 @@ class InserisciDetentoreDialog(QDialog):
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "Errore", f"Errore nel caricamento delle armi: {str(e)}")
-        finally:
-            if 'conn' in locals() and conn:
-                conn.close()
 
     def inserisci_arma(self):
         """Inserisce una nuova arma per il detentore"""
@@ -785,7 +799,10 @@ class InserisciDetentoreDialog(QDialog):
             return
 
         try:
-            conn = sqlite3.connect("gestione_armi.db")
+            # Importa il DatabaseManager dal file Detentori.py
+            from Detentori import DatabaseManager
+            db_manager = DatabaseManager()
+            conn = db_manager.get_connection()
             cursor = conn.cursor()
 
             # Recupera i dati dell'arma
@@ -811,13 +828,18 @@ class InserisciDetentoreDialog(QDialog):
             }
 
             # Conferma eliminazione
-            reply = QMessageBox.question(self, "Conferma eliminazione",
-                                         f"Sei sicuro di voler eliminare questa arma?\nMatricola: {arma_dict['Matricola']}\nMarca: {arma_dict['MarcaArma']}\nModello: {arma_dict['ModelloArma']}",
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            reply = QMessageBox.question(
+                self,
+                "Conferma eliminazione",
+                f"Sei sicuro di voler eliminare questa arma?\nMatricola: {arma_dict['Matricola']}\nMarca: {arma_dict['MarcaArma']}\nModello: {arma_dict['ModelloArma']}",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
 
             if reply == QMessageBox.Yes:
                 # Importa il dialogo per il motivo dell'eliminazione
                 from ArmiDialog import DialogoMotivoEliminazione
+                from PyQt5.QtWidgets import QDialog
 
                 # Crea e mostra il dialogo per la motivazione
                 dialogo_motivo = DialogoMotivoEliminazione(arma_dict, self)
@@ -870,8 +892,11 @@ class InserisciDetentoreDialog(QDialog):
                 cursor.execute("DELETE FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
                 conn.commit()
 
-                QMessageBox.information(self, "Eliminazione completata",
-                                        "L'arma è stata eliminata con successo.\nMotivo registrato nello storico.")
+                QMessageBox.information(
+                    self,
+                    "Eliminazione completata",
+                    "L'arma è stata eliminata con successo.\nMotivo registrato nello storico."
+                )
 
                 # Ricarica la tabella delle armi
                 self.carica_armi()
@@ -881,9 +906,7 @@ class InserisciDetentoreDialog(QDialog):
             print(f"Errore durante l'eliminazione dell'arma: {e}")
             import traceback
             traceback.print_exc()
-        finally:
-            if 'conn' in locals() and conn:
-                conn.close()
+        # Non chiudiamo la connessione qui per mantenere la connessione persistente
 
     def update_sigla_provincia_nascita(self):
         """Aggiorna la sigla provincia di nascita in base al comune selezionato"""
@@ -919,482 +942,274 @@ class InserisciDetentoreDialog(QDialog):
         """Calcola il codice fiscale in base ai dati inseriti"""
         from Utility import compute_codice_fiscale
 
-        # Recupera i dati necessari
+        # Recupera i dati necessari dai campi di input
         nome = self.nomeEdit.text().strip()
         cognome = self.cognomeEdit.text().strip()
         data_nascita = self.dataNascitaEdit.text().strip()  # Usa il metodo text() del widget personalizzato
         sesso = self.sessoEdit.text().strip()
         comune_nascita = self.luogoNascitaCombo.currentText().strip()
 
+        # Se uno dei campi essenziali non è stato compilato, mostra un warning
         if not (nome and cognome and data_nascita and sesso and comune_nascita):
             QMessageBox.warning(self, "Dati mancanti",
                                 "Inserisci nome, cognome, data di nascita, sesso e comune di nascita.")
             return
 
         try:
+            # Calcola il codice fiscale usando la funzione di utilità
             cf = compute_codice_fiscale(nome, cognome, data_nascita, sesso, comune_nascita)
+            # Imposta il risultato nel widget dedicato
             self.codiceFiscaleEdit.setText(cf)
         except Exception as e:
+            # Gestisce eventuali eccezioni mostrando un messaggio di errore
             QMessageBox.critical(self, "Errore", f"Impossibile calcolare il codice fiscale:\n{e}")
 
     def stampa_denuncia_armi(self):
-        """Genera e stampa una denuncia di detenzione armi con layout professionale e dettagli completi"""
+        """Genera e salva una denuncia di detenzione armi usando DocxTemplate"""
         if not self.detentore_data or not self.detentore_data.get('id'):
             QMessageBox.warning(self, "Attenzione", "Nessun detentore selezionato.")
             return
 
         try:
-            conn = sqlite3.connect("gestione_armi.db")
-            cursor = conn.cursor()
-            detentore_id = self.detentore_data.get('id')
+            # Connessione al database
+            with sqlite3.connect("gestione_armi.db") as conn:
+                cursor = conn.cursor()
+                detentore_id = self.detentore_data.get('id')
 
-            # Recupera i dati del detentore
-            cursor.execute("""
-                SELECT Cognome, Nome, CodiceFiscale, DataNascita, LuogoNascita, SiglaProvinciaNascita,
-                       ComuneResidenza, SiglaProvinciaResidenza, TipoVia, Via, Civico, Telefono,
-                       NumeroPortoArmi, DataRilascio, EnteRilascio
-                FROM detentori 
-                WHERE ID_Detentore = ?
-            """, (detentore_id,))
-            detentore = cursor.fetchone()
+                # Recupera i dati del detentore
+                cursor.execute("""
+                    SELECT Cognome, Nome, CodiceFiscale, DataNascita, LuogoNascita, SiglaProvinciaNascita,
+                          ComuneResidenza, SiglaProvinciaResidenza, TipoVia, Via, Civico, Telefono,
+                          NumeroPortoArmi, DataRilascio, EnteRilascio
+                    FROM detentori 
+                    WHERE ID_Detentore = ?
+                """, (detentore_id,))
+                detentore = cursor.fetchone()
 
-            if not detentore:
-                QMessageBox.warning(self, "Attenzione", "Detentore non trovato nel database.")
-                return
+                if not detentore:
+                    QMessageBox.warning(self, "Attenzione", "Detentore non trovato nel database.")
+                    return
 
-            # Recupera le armi raggruppate per categoria con tutti i dettagli aggiuntivi
-            cursor.execute("""
-                SELECT CategoriaArma, TipoArma, MarcaArma, ModelloArma, Matricola, CalibroArma, 
-                       CaricamentoArma, ArmaLungaCorta, DataAcquisto, NoteArma,
-                       TipoCedente, CognomeCedente, NomeCedente, 
-                       TipoCanna, MatricolaCanna, LunghezzaCanna, NumeroCanne,
-                       TipoMunizioni, QuantitaMunizioni, TipoBossolo
-                FROM armi 
-                WHERE ID_Detentore = ?
-                ORDER BY CategoriaArma, TipoArma, MarcaArma, ModelloArma
-            """, (detentore_id,))
-            armi = cursor.fetchall()
+                # Recupera le armi raggruppate per categoria con tutti i dettagli aggiuntivi
+                cursor.execute("""
+                    SELECT CategoriaArma, TipoArma, MarcaArma, ModelloArma, Matricola, CalibroArma, 
+                           CaricamentoArma, ArmaLungaCorta, DataAcquisto, NoteArma,
+                           TipoCedente, CognomeCedente, NomeCedente, 
+                           TipoCanna, MatricolaCanna, LunghezzaCanna, NumeroCanne,
+                           TipoMunizioni, QuantitaMunizioni, TipoBossolo
+                    FROM armi 
+                    WHERE ID_Detentore = ?
+                    ORDER BY CategoriaArma, TipoArma, MarcaArma, ModelloArma
+                """, (detentore_id,))
+                armi = cursor.fetchall()
 
-            if not armi:
-                QMessageBox.warning(self, "Attenzione", "Nessuna arma trovata per questo detentore.")
-                return
+                if not armi:
+                    QMessageBox.warning(self, "Attenzione", "Nessuna arma trovata per questo detentore.")
+                    return
 
-            # Ottieni data per il documento
-            from PyQt5.QtGui import QTextDocument
-            from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog
-            from datetime import datetime
+                # Raggruppa le armi per categoria
+                armi_by_categoria = {}
+                for arma in armi:
+                    categoria = arma[0] or "NON SPECIFICATA"
+                    if categoria not in armi_by_categoria:
+                        armi_by_categoria[categoria] = []
+                    armi_by_categoria[categoria].append(arma)
 
-            current_date = datetime.now().strftime('%d/%m/%Y')
-            current_time = datetime.now().strftime('%H:%M')
-            current_year = datetime.now().year
+                # Prepara i dati per il template
+                armi_formattate = []
+                contatore = 1
 
-            # Raggruppa le armi per categoria
-            armi_by_categoria = {}
-            for arma in armi:
-                categoria = arma[0] or "NON SPECIFICATA"
-                if categoria not in armi_by_categoria:
-                    armi_by_categoria[categoria] = []
-                armi_by_categoria[categoria].append(arma)
+                for categoria, armi_in_categoria in armi_by_categoria.items():
+                    for arma in armi_in_categoria:
+                        armi_formattate.append({
+                            'numero': contatore,
+                            'categoria': categoria,
+                            'tipo': arma[1] or "N/D",
+                            'marca': arma[2] or "N/D",
+                            'modello': arma[3] or "N/D",
+                            'matricola': arma[4] or "N/D",
+                            'calibro': arma[5] or "N/D",
+                            'caricamento': arma[6] or "N/D",
+                            'tipo_arma': arma[7] or "N/D",
+                            'data_acquisto': arma[8] or "N/D",
+                            'note': arma[9] or "",
+                            'tipo_cedente': arma[10] or "N/D",
+                            'cognome_cedente': arma[11] or "N/D",
+                            'nome_cedente': arma[12] or "N/D",
+                            'tipo_canna': arma[13] or "N/D",
+                            'matricola_canna': arma[14] or "N/D",
+                            'lunghezza_canna': arma[15] or "N/D",
+                            'numero_canne': arma[16] or "N/D",
+                            'tipo_munizioni': arma[17] or "N/D",
+                            'quantita_munizioni': arma[18] or "N/D",
+                            'tipo_bossolo': arma[19] or "N/D"
+                        })
+                        contatore += 1
 
-            # Crea il documento HTML con stile professionale
-            html = f"""
-            <html>
-            <head>
-                <style>
-                    @page {{ size: A4; margin: 10mm; }}
-                    body {{ 
-                        font-family: 'Arial', sans-serif;
-                        margin: 0;
-                        padding: 0;
-                        color: #333;
-                        line-height: 1.5;
-                        font-size: 10pt;
-                    }}
-                    .header {{ 
-                        text-align: center;
-                        border-bottom: 2px solid #002855;
-                        padding-bottom: 10px;
-                        margin-bottom: 20px;
-                    }}
-                    .document-title {{
-                        font-size: 22pt;
-                        font-weight: bold;
-                        color: #002855;
-                        margin-bottom: 5px;
-                    }}
-                    .document-subtitle {{
-                        font-size: 14pt;
-                        color: #444;
-                        margin-bottom: 15px;
-                    }}
-                    .official {{
-                        margin: 0 auto;
-                        text-align: center;
-                        font-size: 9pt;
-                        margin-bottom: 10px;
-                    }}
-                    .section {{
-                        margin-bottom: 20px;
-                        page-break-inside: avoid;
-                    }}
-                    .section-title {{
-                        font-size: 16pt; /* Increased for emphasis */
-                        color: #002855;
-                        border-bottom: 2px solid #002855; /* Thicker line */
-                        margin-bottom: 10px;
-                        padding-bottom: 5px;
-                    }}
-                    .detentore-info {{
-                        border: 1px solid #ccc;
-                        padding: 15px;
-                        background-color: #f9f9f9;
-                        margin-bottom: 20px;
-                    }}
-                    .detentore-info-title {{
-                        font-weight: bold;
-                        margin-bottom: 10px;
-                        color: #002855;
-                        font-size: 12pt;
-                    }}
-                    .detentore-data {{
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        grid-gap: 10px;
-                    }}
-                    .info-row {{
-                        margin-bottom: 8px;
-                    }}
-                    .info-row .label {{
-                        font-weight: bold;
-                        margin-right: 5px;
-                    }}
-                    table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-bottom: 15px;
-                        font-size: 9pt;
-                    }}
-                    th {{
-                        background-color: #002855;
-                        color: white;
-                        text-align: left;
-                        padding: 8px; /* Increased padding */
-                        font-size: 10pt; /* Slightly larger font */
-                        border: 1px solid #ddd; /* Added border */
-                    }}
-                    td {{
-                        padding: 8px; /* Increased padding */
-                        border-bottom: 1px solid #ddd;
-                        font-size: 9pt;
-                        vertical-align: top;
-                        border: 1px solid #ddd; /* Added border */
-                    }}
-                    tr:nth-child(even) {{
-                        background-color: #f2f2f2;
-                    }}
-                    .category {{
-                        background-color: #e6eef7;
-                        padding: 8px;
-                        font-weight: bold;
-                        border-left: 4px solid #002855;
-                        margin-top: 20px;
-                        margin-bottom: 10px;
-                    }}
-                    .summary {{
-                        font-weight: bold;
-                        margin-top: 15px;
-                        font-size: 12pt;
-                        color: #002855;
-                        border-top: 1px solid #ddd;
-                        padding-top: 10px;
-                    }}
-                    .signature-area {{
-                        margin-top: 40px;
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        grid-gap: 20px;
-                    }}
-                    .signature-box {{
-                        border-top: 1px solid #333;
-                        padding-top: 5px;
-                        margin-top: 50px;
-                        text-align: center;
-                    }}
-                    .official-area {{
-                        margin-top: 30px;
-                        border: 1px dashed #999;
-                        height: 80px;
-                        text-align: center;
-                        padding-top: 30px;
-                        color: #666;
-                        margin-bottom: 20px;
-                    }}
-                    .footer {{
-                        margin-top: 40px;
-                        font-size: 8pt;
-                        text-align: center;
-                        color: #666;
-                        padding-top: 10px;
-                        border-top: 1px solid #ddd;
-                    }}
-                    .page-number {{
-                        text-align: right;
-                        font-size: 8pt;
-                        color: #666;
-                        margin-top: 10px;
-                    }}
-                    .details {{
-                        font-size: 9pt; /* Adjusted font size */
-                        color: #555;
-                    }}
-                    .details-header {{
-                        font-weight: bold;
-                        margin-top: 3px;
-                    }}
-                    .details-text {{
-                        margin-left: 5px;
-                    }}
-                    .acquisition-info {{
-                        border-top: 1px dotted #ccc;
-                        margin-top: 5px;
-                        padding-top: 3px;
-                    }}
-                    .hidden-break {{ 
-                        page-break-after: always;
-                        visibility: hidden;
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="official">REPUBBLICA ITALIANA</div>
-                    <div class="document-title">DENUNCIA DI DETENZIONE ARMI</div>
-                    <div class="document-subtitle">Art. 38 R.D. 18 giugno 1931, n. 773 (T.U.L.P.S.)</div>
-                </div>
+                # Ottieni data per il documento
+                data_corrente = datetime.now().strftime('%d/%m/%Y')
+                ora_corrente = datetime.now().strftime('%H:%M')
 
-                <div class="section">
-                    <div class="section-title">DATI DEL DICHIARANTE</div>
-                    <div class="detentore-info">
-                        <div class="detentore-data">
-                            <div>
-                                <div class="info-row"><span class="label">Cognome:</span> {detentore[0]}</div>
-                                <div class="info-row"><span class="label">Nome:</span> {detentore[1]}</div>
-                                <div class="info-row"><span class="label">Codice Fiscale:</span> {detentore[2]}</div>
-                                <div class="info-row"><span class="label">Nato il:</span> {detentore[3]}</div>
-                                <div class="info-row"><span class="label">Luogo di nascita:</span> {detentore[4]} ({detentore[5]})</div>
-                            </div>
-                            <div>
-                                <div class="info-row"><span class="label">Residente a:</span> {detentore[6]} ({detentore[7]})</div>
-                                <div class="info-row"><span class="label">Indirizzo:</span> {detentore[8]} {detentore[9]} {detentore[10]}</div>
-                                <div class="info-row"><span class="label">Telefono:</span> {detentore[11] or "N/D"}</div>
-                                <div class="info-row"><span class="label">Titolo porto d'armi n°:</span> {detentore[12] or "N/D"}</div>
-                                <div class="info-row"><span class="label">Rilasciato il:</span> {detentore[13] or "N/D"} <span class="label">da:</span> {detentore[14] or "N/D"}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                # Prepara il contesto per il template
+                context = {
+                    'data_documento': data_corrente,
+                    'ora_documento': ora_corrente,
+                    'cognome': detentore[0],
+                    'nome': detentore[1],
+                    'codice_fiscale': detentore[2],
+                    'data_nascita': detentore[3],
+                    'luogo_nascita': detentore[4],
+                    'provincia_nascita': detentore[5],
+                    'comune_residenza': detentore[6],
+                    'provincia_residenza': detentore[7],
+                    'tipo_via': detentore[8],
+                    'via': detentore[9],
+                    'civico': detentore[10],
+                    'telefono': detentore[11] or "N/D",
+                    'numero_porto_armi': detentore[12] or "N/D",
+                    'data_rilascio': detentore[13] or "N/D",
+                    'ente_rilascio': detentore[14] or "N/D",
+                    'armi': armi_formattate,
+                    'totale_armi': len(armi),
+                    'categorie': [{'nome': cat, 'conteggio': len(armi_cat)} for cat, armi_cat in
+                                  armi_by_categoria.items()]
+                }
 
-                <div class="section">
-                    <div class="section-title">DICHIARAZIONE DI POSSESSO ARMI</div>
-                    <p>
-                        Il sottoscritto <b>{detentore[0]} {detentore[1]}</b>, sotto la propria responsabilità e consapevole delle sanzioni penali 
-                        previste dall'art. 76 del D.P.R. 445/2000 in caso di false dichiarazioni, dichiara di detenere, 
-                        presso la propria residenza sopra indicata, le seguenti armi:
-                    </p>
-                </div>
+                # Definisci il percorso del template SENZA usare __file__
+                current_dir = os.getcwd()  # Otteniamo la directory corrente
+                template_path = os.path.join(current_dir, "templates", "denuncia_armi_template.docx")
 
-                <div class="section">
-                    <div class="section-title">ARMI DETENUTE</div>
-            """
+                # Verifica se il template esiste
+                if not os.path.exists(template_path):
+                    # Prova a cercare il template in una sottodirectory dell'eseguibile
+                    base_dir = os.path.dirname(sys.executable) if hasattr(sys, 'frozen') else current_dir
+                    template_path = os.path.join(base_dir, "templates", "denuncia_armi_template.docx")
 
-            # Numerazione progressiva per tutte le armi
-            counter = 1
+                    if not os.path.exists(template_path):
+                        QMessageBox.critical(self, "Errore",
+                                             f"Template non trovato in:\n{template_path}\n\nCreare una cartella 'templates' con il file template.")
+                        return
 
-            # Aggiunge le tabelle per ogni categoria di armi
-            for categoria, armi_categoria in armi_by_categoria.items():
-                html += f"""
-                <div class="category">{categoria} ({len(armi_categoria)})</div>
-                <table>
-                    <tr>
-                        <th style="width: 3%">N.</th>
-                        <th style="width: 8%">Tipo</th>
-                        <th style="width: 12%">Marca</th>
-                        <th style="width: 12%">Modello</th>
-                        <th style="width: 10%">Matricola</th>
-                        <th style="width: 8%">Calibro</th>
-                        <th style="width: 8%">Caricamento</th>
-                        <th style="width: 39%">Dettagli aggiuntivi</th>
-                    </tr>
-                """
+                # Carica il template
+                doc = DocxTemplate(template_path)
 
-                for arma in armi_categoria:
-                    # Dati principali
-                    tipo = arma[1] or "N/D"
-                    marca = arma[2] or "N/D"
-                    modello = arma[3] or "N/D"
-                    matricola = arma[4] or "N/D"
-                    calibro = arma[5] or "N/D"
-                    caricamento = arma[6] or "N/D"
-                    tipo_arma = arma[7] or ""
-                    data_acquisto = arma[8] or "N/D"
-                    note = arma[9] or ""
+                # Rendering del documento
+                doc.render(context)
 
-                    # Dati cedente/venditore
-                    tipo_cedente = arma[10] or "N/D"
-                    cognome_cedente = arma[11] or "N/D"
-                    nome_cedente = arma[12] or "N/D"
+                # Richiedi all'utente dove salvare il file
+                nome_file_default = f"Denuncia_Armi_{detentore[0]}_{detentore[1]}_{data_corrente.replace('/', '_')}.docx"
+                file_path, _ = QFileDialog.getSaveFileName(
+                    self,
+                    "Salva documento",
+                    nome_file_default,
+                    "Documenti Word (*.docx)"
+                )
 
-                    # Dati canna
-                    tipo_canna = arma[13] or "N/D"
-                    matricola_canna = arma[14] or "N/D"
-                    lunghezza_canna = arma[15] or "N/D"
-                    numero_canne = arma[16] or "N/D"
+                if file_path:
+                    doc.save(file_path)
+                    QMessageBox.information(self, "Documento generato",
+                                            f"Il documento è stato salvato con successo in:\n{file_path}")
 
-                    # Dati munizioni
-                    tipo_munizioni = arma[17] or "N/D"
-                    quantita_munizioni = arma[18] or "N/D"
-                    tipo_bossolo = arma[19] or "N/D"
-
-                    # Formatta i dettagli aggiuntivi
-                    dettagli_html = f"""
-                    <div class="details">
-                        <div><span class="details-header">Canna:</span> <span class="details-text">{tipo_canna}, Matricola: {matricola_canna}, Lunghezza: {lunghezza_canna}, N° canne: {numero_canne}</span></div>
-                        <div><span class="details-header">Munizioni:</span> <span class="details-text">Tipo: {tipo_munizioni}, Quantità: {quantita_munizioni}, Bossolo: {tipo_bossolo}</span></div>
-                        <div class="acquisition-info">
-                            <span class="details-header">Acquisizione:</span> <span class="details-text">Data: {data_acquisto}, da: {cognome_cedente} {nome_cedente} ({tipo_cedente})</span>
-                        </div>
-                        {f'<div><span class="details-header">Note:</span> <span class="details-text">{note}</span></div>' if note else ''}
-                    </div>
-                    """
-
-                    html += f"""
-                    <tr>
-                        <td>{counter}</td>
-                        <td>{tipo}</td>
-                        <td>{marca}</td>
-                        <td>{modello}</td>
-                        <td>{matricola}</td>
-                        <td>{calibro}</td>
-                        <td>{caricamento}</td>
-                        <td>{dettagli_html}</td>
-                    </tr>
-                    """
-                    counter += 1
-
-                html += "</table>"
-
-                # Aggiungi un'interruzione di pagina se ci sono più di 10 armi in una categoria
-                if len(armi_categoria) > 10:
-                    html += '<div class="hidden-break"></div>'
-
-            # Riepilogo totale
-            total_armi = len(armi)
-            html += f"""
-                <div class="summary">
-                    TOTALE ARMI DETENUTE: {total_armi}
-                </div>
-
-                <p>
-                    Il sottoscritto dichiara altresì di essere in possesso dei requisiti psicofisici previsti dalla normativa vigente 
-                    e che le armi sopra elencate sono detenute presso la propria residenza in appositi locali che garantiscono la 
-                    necessaria sicurezza.
-                </p>
-
-                <div class="signature-area">
-                    <div>
-                        <div class="signature-box">
-                            IL DICHIARANTE
-                        </div>
-                    </div>
-                    <div>
-                        <div class="signature-box">
-                            LUOGO E DATA<br>
-                            {detentore[6]}, {current_date}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="official-area">
-                    SPAZIO RISERVATO ALL'UFFICIO<br>
-                    (TIMBRO E FIRMA)
-                </div>
-
-                <div class="footer">
-                    Dichiarazione resa ai sensi dell'art. 38 R.D. 18 giugno 1931, n. 773 (T.U.L.P.S.) e successive modifiche.<br>
-                    Documento generato automaticamente dal sistema di gestione armi in data {current_date} alle ore {current_time}.
-                </div>
-
-                <div class="page-number">Pagina 1</div>
-            </body>
-            </html>
-            """
-
-            # Mostra l'anteprima di stampa
-            doc = QTextDocument()
-            doc.setHtml(html)
-
-            printer = QPrinter(QPrinter.HighResolution)
-            printer.setPageSize(QPrinter.A4)
-            preview = QPrintPreviewDialog(printer, self)
-            preview.paintRequested.connect(lambda p: doc.print_(p))
-            preview.exec_()
+                    # Chiedi all'utente se vuole aprire il documento
+                    reply = QMessageBox.question(self, "Aprire documento?",
+                                                 "Vuoi aprire il documento generato?",
+                                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                    if reply == QMessageBox.Yes:
+                        # Apri il documento con l'applicazione predefinita
+                        if os.name == 'nt':  # Windows
+                            os.startfile(file_path)
+                        elif os.name == 'posix':  # macOS o Linux
+                            import subprocess
+                            subprocess.call(
+                                ('open', file_path) if sys.platform == 'darwin' else ('xdg-open', file_path))
 
         except Exception as e:
             QMessageBox.critical(self, "Errore",
-                                 f"Si è verificato un errore durante la preparazione della denuncia: {str(e)}")
-            print(f"Errore nella stampa della denuncia: {e}")
+                                 f"Si è verificato un errore durante la preparazione del documento: {str(e)}")
+            print(f"Errore nella generazione del documento: {e}")
             import traceback
             traceback.print_exc()
-        finally:
-            if 'conn' in locals() and conn:
-                conn.close()
+class UpperCaseLineEdit(QLineEdit):
+    def __init__(self, *args, **kwargs):
+        super(UpperCaseLineEdit, self).__init__(*args, **kwargs)
+        # Colleghiamo il segnale textChanged al metodo onTextChanged
+        self.textChanged.connect(self.onTextChanged)
 
-def load_comuni():
-    """Carica la lista dei comuni dal database"""
-    try:
-        conn = sqlite3.connect("gestione_armi.db")
+    def onTextChanged(self, text):
+        upper_text = text.upper()
+        if text != upper_text:
+            self.blockSignals(True)
+            self.setText(upper_text)
+            self.blockSignals(False)
+
+class DatabaseManager:
+    _instance = None
+    _lock = threading.Lock()  # Per evitare problemi in ambienti multi-thread
+
+    def __new__(cls, db_path="gestione_armi.db"):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(DatabaseManager, cls).__new__(cls)
+                cls._instance._db_path = db_path
+                cls._instance._connection = None
+            return cls._instance
+
+    def get_connection(self):
+        """Restituisce la connessione attiva; la apre se non esiste già."""
+        if self._connection is None:
+            try:
+                self._connection = sqlite3.connect(self._db_path)
+                # Imposta eventualmente alcune opzioni utili, ad es. l'uso di row_factory per accedere ai campi per nome
+                self._connection.row_factory = sqlite3.Row
+            except Exception as e:
+                raise Exception(f"Errore durante l'apertura del database: {e}")
+        return self._connection
+
+    def close_connection(self):
+        """Chiude la connessione, se esiste."""
+        if self._connection:
+            self._connection.close()
+            self._connection = None
+
+    def execute_query(self, query, params=()):
+        """
+        Esegue una query e restituisce il cursore.
+        Ricorda di gestire il commit se stai modificando dati.
+        """
+        conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT [Denominazione in italiano] FROM comuni')
-        rows = cursor.fetchall()
-        conn.close()
-        # Salta il primo record e converte in maiuscolo
-        return [row[0].upper() for row in rows[1:] if row[0]]
-    except Exception as e:
-        print("Errore nel caricamento dei comuni:", e)
-        return []
+        try:
+            cursor.execute(query, params)
+            return cursor
+        except Exception as e:
+            raise Exception(f"Errore durante l'esecuzione della query: {e}")
 
-def load_province():
-    """Carica la lista delle province dal database"""
-    try:
-        conn = sqlite3.connect("gestione_armi.db")
-        cursor = conn.cursor()
-        cursor.execute('SELECT C15 FROM province')
-        rows = cursor.fetchall()
-        conn.close()
-        # Converte in maiuscolo
-        return [row[0].upper() for row in rows if row[0]]
-    except Exception as e:
-        print("Errore nel caricamento delle province:", e)
-        return []
+class FilterableComboBox(QComboBox):
+    def __init__(self, parent=None):
+        super(FilterableComboBox, self).__init__(parent)
+        self.setEditable(True)
+        # Imposta un modello di stringhe
+        self._model = QStringListModel()
+        # Imposta un proxy per il filtraggio
+        self._proxy_model = QSortFilterProxyModel(self)
+        self._proxy_model.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self._proxy_model.setSourceModel(self._model)
+        # Imposta il completer basato sul proxy model
+        self._completer = QCompleter(self._proxy_model, self)
+        self._completer.setCompletionMode(QCompleter.PopupCompletion)
+        self.setCompleter(self._completer)
+        # Collega l'evento per il filtraggio in tempo reale
+        self.lineEdit().textEdited.connect(self._filterItems)
 
+    def setItems(self, items):
+        """Imposta gli elementi nella comboBox e nel modello del completer."""
+        self.clear()
+        self.addItems(items)
+        self._model.setStringList(items)
 
-
-
-class TestWidget(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Test ComboBox Comuni")
-        layout = QVBoxLayout(self)
-        self.combo = QComboBox()
-        self.combo.setEditable(True)
-        comuni = load_comuni()
-        self.combo.addItems(comuni)
-        completer = QCompleter(comuni)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.combo.setCompleter(completer)
-        layout.addWidget(self.combo)
-        self.setLayout(layout)
-
+    def _filterItems(self, text):
+        """Aggiorna il filtro del proxy model in base al testo digitato."""
+        self._proxy_model.setFilterFixedString(text)
 
 if __name__ == "__main__":
     import sys

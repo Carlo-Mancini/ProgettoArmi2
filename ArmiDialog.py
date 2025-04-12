@@ -2,7 +2,7 @@ import sqlite3
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
     QGroupBox, QPushButton, QHBoxLayout, QGridLayout, QScrollArea,
-    QLabel, QSizePolicy, QComboBox, QMessageBox, QInputDialog, QDateEdit,
+    QLabel, QSizePolicy, QComboBox, QMessageBox, QInputDialog, QDateEdit, QCheckBox,
 )
 from PyQt5.QtCore import QDate, Qt
 from Utility import convert_all_lineedits_to_uppercase, DateInputWidget
@@ -37,6 +37,46 @@ class ArmaDialog(QDialog):
             finally:
                 if conn:
                     conn.close()
+
+        # NUOVA PARTE: Verifica dei campi del luogo di detenzione
+        if arma_data:
+            # Lista dei campi del luogo di detenzione
+            campi_detenzione = ['ComuneDetenzione', 'ProvinciaDetenzione', 'TipoViaDetenzione',
+                                'IndirizzoDetenzione', 'CivicoDetenzione', 'NoteDetenzione']
+
+            # Verifica se mancano campi
+            campi_mancanti = [campo for campo in campi_detenzione if campo not in arma_data]
+
+            if campi_mancanti:
+                print(f"Campi detenzione mancanti: {campi_mancanti}")
+                try:
+                    conn = sqlite3.connect("gestione_armi.db")
+                    cursor = conn.cursor()
+
+                    # Costruisci la query per selezionare i campi mancanti
+                    select_fields = ', '.join(campi_mancanti)
+                    cursor.execute(f"SELECT {select_fields} FROM armi WHERE ID_ArmaDetenuta = ?",
+                                   (arma_data['ID_ArmaDetenuta'],))
+
+                    risultati = cursor.fetchone()
+
+                    # Aggiungi i valori al dizionario arma_data
+                    if risultati:
+                        for i, campo in enumerate(campi_mancanti):
+                            arma_data[campo] = risultati[i] if risultati[i] is not None else ''
+                            print(f"Recuperato {campo}: {arma_data[campo]}")
+                    else:
+                        for campo in campi_mancanti:
+                            arma_data[campo] = ''
+                except Exception as e:
+                    print(f"Errore nel recupero dei dati del luogo di detenzione: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    for campo in campi_mancanti:
+                        arma_data[campo] = ''
+                finally:
+                    if conn:
+                        conn.close()
 
         self.arma_data = arma_data
         self.detentore_id = detentore_id
@@ -376,25 +416,32 @@ class ArmaDialog(QDialog):
         self.civicoDetenzioneEdit = QLineEdit()
         self.noteDetenzioneEdit = QLineEdit()
 
+        # Aggiungi la checkbox "Uguale alla residenza"
+        self.ugualeResidenzaCheck = QCheckBox("Uguale alla residenza del detentore")
+        self.ugualeResidenzaCheck.stateChanged.connect(self.on_uguale_residenza_changed)
+
         # Creazione del gruppo per i dati del luogo
         group_detenzione = QGroupBox("Dati Luogo Detenzione")
         grid = QGridLayout()
 
-        # Riga 1
-        grid.addWidget(QLabel("Comune:"), 0, 0)
-        grid.addWidget(self.comuneDetenzioneEdit, 0, 1)
-        grid.addWidget(QLabel("Provincia:"), 0, 2)
-        grid.addWidget(self.provinciaDetenzioneEdit, 0, 3)
+        # Aggiungi la checkbox nella prima riga
+        grid.addWidget(self.ugualeResidenzaCheck, 0, 0, 1, 4)
 
         # Riga 2
-        grid.addWidget(QLabel("Tipo Via:"), 1, 0)
-        grid.addWidget(self.tipoViaDetenzioneEdit, 1, 1)
-        grid.addWidget(QLabel("Indirizzo:"), 1, 2)
-        grid.addWidget(self.indirizzoDetenzioneEdit, 1, 3)
+        grid.addWidget(QLabel("Comune:"), 1, 0)
+        grid.addWidget(self.comuneDetenzioneEdit, 1, 1)
+        grid.addWidget(QLabel("Provincia:"), 1, 2)
+        grid.addWidget(self.provinciaDetenzioneEdit, 1, 3)
 
         # Riga 3
-        grid.addWidget(QLabel("Civico:"), 2, 0)
-        grid.addWidget(self.civicoDetenzioneEdit, 2, 1)
+        grid.addWidget(QLabel("Tipo Via:"), 2, 0)
+        grid.addWidget(self.tipoViaDetenzioneEdit, 2, 1)
+        grid.addWidget(QLabel("Indirizzo:"), 2, 2)
+        grid.addWidget(self.indirizzoDetenzioneEdit, 2, 3)
+
+        # Riga 4
+        grid.addWidget(QLabel("Civico:"), 3, 0)
+        grid.addWidget(self.civicoDetenzioneEdit, 3, 1)
 
         group_detenzione.setLayout(grid)
 
@@ -410,6 +457,107 @@ class ArmaDialog(QDialog):
         main_layout.addWidget(group_note)
         main_layout.addStretch()
         self.tab_detenzione.setLayout(main_layout)
+
+    def on_uguale_residenza_changed(self, state):
+        """Gestisce il cambio di stato della checkbox 'Uguale alla residenza'"""
+        if state == Qt.Checked:
+            # Se è selezionata, copiamo i dati della residenza del detentore
+            self.copy_detentore_residence_data()
+        else:
+            # Se non è selezionata, non facciamo nulla (l'utente potrà inserire dati diversi)
+            pass
+
+    def on_detenzione_field_changed(self):
+        """
+        Gestisce i cambiamenti nei campi del luogo di detenzione.
+        Se vengono modificati manualmente, deseleziona la checkbox "Uguale alla residenza".
+        """
+        # Converti il testo in maiuscolo
+        sender = self.sender()
+        cursor_pos = sender.cursorPosition()
+        sender.setText(sender.text().upper())
+        sender.setCursorPosition(cursor_pos)
+
+        # Deseleziona la checkbox se il testo viene modificato manualmente
+        # Solo se la checkbox è selezionata
+        if hasattr(self, 'ugualeResidenzaCheck') and self.ugualeResidenzaCheck.isChecked():
+            self.ugualeResidenzaCheck.blockSignals(True)  # Blocca i segnali per evitare ricorsione
+            self.ugualeResidenzaCheck.setChecked(False)
+            self.ugualeResidenzaCheck.blockSignals(False)
+
+    def on_uguale_residenza_changed(self, state):
+        """Gestisce il cambio di stato della checkbox 'Uguale alla residenza'"""
+        if state == Qt.Checked:
+            # Se è selezionata, copiamo i dati della residenza del detentore
+            self.copy_detentore_residence_data()
+        else:
+            # Se non è selezionata, non facciamo nulla (l'utente potrà inserire dati diversi)
+            pass
+
+    def copy_detentore_residence_data(self):
+        """Copia i dati della residenza del detentore nei campi del luogo di detenzione"""
+        try:
+            # Verifichiamo che ci sia un detentore ID valido
+            if not self.detentore_id:
+                QMessageBox.warning(self, "Attenzione", "Nessun detentore selezionato.")
+                self.ugualeResidenzaCheck.setChecked(False)
+                return
+
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+
+            # Recupera i dati della residenza del detentore dal database usando i nomi corretti delle colonne
+            cursor.execute("""
+                SELECT ComuneResidenza, SiglaProvinciaResidenza, TipoVia,
+                       Via, Civico
+                FROM detentori
+                WHERE ID_Detentore = ?
+            """, (self.detentore_id,))
+
+            result = cursor.fetchone()
+
+            if result:
+                # Copia i dati nei campi del luogo di detenzione
+                self.comuneDetenzioneEdit.setText(result[0] if result[0] else '')
+                self.provinciaDetenzioneEdit.setText(result[1] if result[1] else '')
+                self.tipoViaDetenzioneEdit.setText(result[2] if result[2] else '')
+                self.indirizzoDetenzioneEdit.setText(result[3] if result[3] else '')
+                self.civicoDetenzioneEdit.setText(result[4] if result[4] else '')
+
+                QMessageBox.information(self, "Informazione",
+                                        "Dati della residenza del detentore copiati nel luogo di detenzione.")
+            else:
+                QMessageBox.warning(self, "Attenzione",
+                                    "Non sono stati trovati dati di residenza per il detentore selezionato.")
+                self.ugualeResidenzaCheck.setChecked(False)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Errore",
+                                 f"Si è verificato un errore durante il recupero dei dati della residenza:\n{str(e)}")
+            print(f"Errore nel recupero dei dati della residenza: {e}")
+            import traceback
+            traceback.print_exc()
+            self.ugualeResidenzaCheck.setChecked(False)
+        finally:
+            if conn:
+                conn.close()
+    def on_detenzione_field_changed(self):
+        """
+        Gestisce i cambiamenti nei campi del luogo di detenzione.
+        Se vengono modificati manualmente, deseleziona la checkbox "Uguale alla residenza".
+        """
+        # Converti il testo in maiuscolo
+        sender = self.sender()
+        cursor_pos = sender.cursorPosition()
+        sender.setText(sender.text().upper())
+        sender.setCursorPosition(cursor_pos)
+
+        # Deseleziona la checkbox se il testo viene modificato manualmente
+        # Solo se la checkbox è selezionata
+        if hasattr(self, 'ugualeResidenzaCheck') and self.ugualeResidenzaCheck.isChecked():
+            self.ugualeResidenzaCheck.blockSignals(True)  # Blocca i segnali per evitare ricorsione
+            self.ugualeResidenzaCheck.setChecked(False)
+            self.ugualeResidenzaCheck.blockSignals(False)
 
     def _create_cedente_tab(self):
         self.tab_cedente = QWidget()
@@ -530,6 +678,7 @@ class ArmaDialog(QDialog):
         main_layout.addLayout(btn_layout)
 
         self.setLayout(main_layout)
+
     def _connect_signals(self):
         """Collega i segnali agli slot"""
         self.saveButton.clicked.connect(self.save_arma)
@@ -549,6 +698,12 @@ class ArmaDialog(QDialog):
                       self.categoriaArmaEdit, self.funzionamentoArmaEdit, self.caricamentoArmaEdit]:
             combo.setEditable(True)
             combo.editTextChanged.connect(self.convert_combobox_text_to_uppercase)
+
+        # Collega i segnali per i campi del luogo di detenzione
+        for field in [self.comuneDetenzioneEdit, self.provinciaDetenzioneEdit,
+                      self.tipoViaDetenzioneEdit, self.indirizzoDetenzioneEdit,
+                      self.civicoDetenzioneEdit, self.noteDetenzioneEdit]:
+            field.textChanged.connect(self.on_detenzione_field_changed)
 
     def convert_combobox_text_to_uppercase(self):
         """Converte il testo della combobox in maiuscolo"""

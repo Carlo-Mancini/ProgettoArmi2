@@ -1,8 +1,6 @@
-import sqlite3
+from PyQt5.QtWidgets import QLineEdit, QCalendarWidget, QToolButton, QHBoxLayout, QWidget
+from PyQt5.QtCore import QDate, Qt, pyqtSignal, QRegExp
 
-from PyQt5.QtCore import QDate, Qt, pyqtSignal
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QToolButton, QDateEdit, QCalendarWidget, QMessageBox
-from PyQt5.QtGui import QIcon
 
 def convert_all_lineedits_to_uppercase(widget):
     from PyQt5.QtWidgets import QLineEdit
@@ -16,6 +14,21 @@ def update_lineedit_uppercase(lineedit, text):
         lineedit.blockSignals(True)
         lineedit.setText(text.upper())
         lineedit.blockSignals(False)
+
+from PyQt5.QtWidgets import QLineEdit
+
+class UpperCaseLineEdit(QLineEdit):
+    def __init__(self, *args, **kwargs):
+        super(UpperCaseLineEdit, self).__init__(*args, **kwargs)
+        # Collega il segnale textChanged per gestire la conversione in uppercase
+        self.textChanged.connect(self.onTextChanged)
+
+    def onTextChanged(self, text):
+        upper_text = text.upper()
+        if text != upper_text:
+            self.blockSignals(True)
+            self.setText(upper_text)
+            self.blockSignals(False)
 
 def get_sigla_provincia(comune, db_path="gestione_armi.db"):
     import sqlite3
@@ -151,11 +164,52 @@ def get_codice_catastale(comune, db_path="gestione_armi.db"):
     finally:
         conn.close()
 
+import sqlite3
 
+# Variabili globali per memorizzare i dati in cache
+_comuni_cache = None
+_province_cache = None
 
-from PyQt5.QtWidgets import QLineEdit, QCalendarWidget, QToolButton, QHBoxLayout, QWidget
-from PyQt5.QtCore import QDate, Qt, pyqtSignal, QRegExp
-from PyQt5.QtGui import QRegExpValidator
+def get_comuni():
+    """Restituisce la lista dei comuni usando una cache per evitare query ripetute"""
+    global _comuni_cache
+    if _comuni_cache is None:
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+            cursor.execute('SELECT [Denominazione in italiano] FROM comuni')
+            rows = cursor.fetchall()
+            # Supponiamo di non voler usare il primo record
+            _comuni_cache = [row[0].upper() for row in rows[1:] if row[0]]
+        except Exception as e:
+            print("Errore nel caricamento dei comuni:", e)
+            _comuni_cache = []
+        finally:
+            conn.close()
+    return _comuni_cache
+
+def get_province():
+    """Restituisce la lista delle province usando una cache per evitare query ripetute"""
+    global _province_cache
+    if _province_cache is None:
+        try:
+            conn = sqlite3.connect("gestione_armi.db")
+            cursor = conn.cursor()
+            cursor.execute('SELECT C15 FROM province')
+            rows = cursor.fetchall()
+            _province_cache = [row[0].upper() for row in rows if row[0]]
+        except Exception as e:
+            print("Errore nel caricamento delle province:", e)
+            _province_cache = []
+        finally:
+            conn.close()
+    return _province_cache
+
+def invalidate_cache():
+    """Invalida le cache, utile se i dati cambiano durante l'esecuzione"""
+    global _comuni_cache, _province_cache
+    _comuni_cache = None
+    _province_cache = None
 
 
 class DateInputWidget(QWidget):
