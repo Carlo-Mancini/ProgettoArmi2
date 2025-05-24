@@ -1,4 +1,5 @@
 import sqlite3
+import traceback
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
     QGroupBox, QPushButton, QHBoxLayout, QGridLayout, QScrollArea,
@@ -129,7 +130,6 @@ class ArmaDialog(QDialog):
         self.dataAcquistoEdit.setDisplayFormat("dd/MM/yyyy")
         self.dataAcquistoEdit.setDate(QDate.currentDate())
 
-
         # Creazione dei campi di testo e combobox
         # Tipo Arma - ComboBox
         self.tipoArmaEdit = QComboBox()
@@ -177,6 +177,11 @@ class ArmaDialog(QDialog):
         self.tipoMunizioniEdit = QLineEdit()
         self.quantitaMunizioniEdit = QLineEdit()
         self.tipoBossoloEdit = QLineEdit()
+
+        # --- nuovi campi ---
+        self.numeroCatalogoEdit = QLineEdit()
+        self.classificazioneEuropeaEdit = QLineEdit()
+
         # Modifica: convertire tipoCedenteEdit da QLineEdit a QComboBox
         self.tipoCedenteEdit = QComboBox()
         self.tipoCedenteEdit.addItem("PERSONA FISICA")
@@ -383,7 +388,13 @@ class ArmaDialog(QDialog):
         grid.addWidget(QLabel("ExOrdDem:"), 2, 0)
         grid.addWidget(self.exOrdDemEdit, 2, 1)
         grid.addWidget(QLabel("Tipo Cedente:"), 2, 2)
-        grid.addWidget(self.tipoCedenteEdit, 2, 3)  # Ora è una QComboBox
+        grid.addWidget(self.tipoCedenteEdit, 2, 3)
+
+        # **Riga 4: i due nuovi campi**
+        grid.addWidget(QLabel("Numero Catalogo:"), 3, 0)
+        grid.addWidget(self.numeroCatalogoEdit, 3, 1)
+        grid.addWidget(QLabel("Classificazione Europea:"), 3, 2)
+        grid.addWidget(self.classificazioneEuropeaEdit, 3, 3)
 
         self.group_classification.setLayout(grid)
 
@@ -870,6 +881,10 @@ class ArmaDialog(QDialog):
         self.civicoDetenzioneEdit.setText(data.get('CivicoDetenzione', ''))
         self.noteDetenzioneEdit.setText(data.get('NoteDetenzione', ''))
 
+        # --- nuovi campi ---
+        self.numeroCatalogoEdit.setText(data.get('NumeroCatalogo', ''))
+        self.classificazioneEuropeaEdit.setText(data.get('ClassificazioneEuropea', ''))
+
         # Per i campi data
         if 'DataAcquisto' in data and data['DataAcquisto']:
             try:
@@ -878,7 +893,6 @@ class ArmaDialog(QDialog):
                     day, month, year = map(int, date_parts)
                     self.dataAcquistoEdit.setDate(QDate(year, month, day))
             except (ValueError, IndexError):
-                # In caso di errore nel parsing della data
                 self.dataAcquistoEdit.setDate(QDate.currentDate())
 
         if 'DataNascitaCedente' in data and data['DataNascitaCedente']:
@@ -888,7 +902,6 @@ class ArmaDialog(QDialog):
                     day, month, year = map(int, date_parts)
                     self.dataNascitaCedenteEdit.setDate(QDate(year, month, day))
             except (ValueError, IndexError):
-                # In caso di errore nel parsing
                 self.dataNascitaCedenteEdit.setDate(QDate.currentDate().addYears(-18))
 
         # Imposta il tipo di cedente e aggiorna l'interfaccia
@@ -898,7 +911,7 @@ class ArmaDialog(QDialog):
             if index >= 0:
                 self.tipoCedenteEdit.setCurrentIndex(index)
         else:
-            self.tipoCedenteEdit.setCurrentIndex(0)  # Default a PERSONA FISICA
+            self.tipoCedenteEdit.setCurrentIndex(0)
 
         marca = data.get('MarcaArma', '')
         if marca:
@@ -987,20 +1000,21 @@ class ArmaDialog(QDialog):
     def save_arma(self):
         """Salva i dati dell'arma nel database"""
         try:
-            # Verifica se la marca è nuova e chiedi di aggiungerla
+            # Verifica e aggiunge nuova marca se necessario
             self.check_and_add_new_marca()
 
+            # Controllo date
             if not self.validate_dates():
-                return  # Interrompi il salvataggio se la validazione fallisce
+                return False
 
-            # Verifica che almeno l'ID del detentore sia valorizzato per un nuovo inserimento
+            # Controllo ID detentore/arma
             if self.arma_data is None and self.detentore_id is None:
                 raise ValueError("ID_Detentore non valorizzato. Impossibile salvare l'arma.")
 
             conn = sqlite3.connect("gestione_armi.db")
             cursor = conn.cursor()
 
-            # Raccogli i dati
+            # Raccolta dati dal form
             tipoArma = self.tipoArmaEdit.currentText()
             marcaArma = self.marcaArmaEdit.currentText()
             modelloArma = self.modelloArmaEdit.text()
@@ -1021,11 +1035,14 @@ class ArmaDialog(QDialog):
             tipoMunizioni = self.tipoMunizioniEdit.text()
             quantitaMunizioni = self.quantitaMunizioniEdit.text()
             tipoBossolo = self.tipoBossoloEdit.text()
-            # MODIFICA IMPORTANTE: ottieni currentText() dalla combobox
             tipoCedente = self.tipoCedenteEdit.currentText()
             noteArma = self.noteArmaEdit.text()
+            numeroCatalogo = self.numeroCatalogoEdit.text()
+            classificazioneEuropea = self.classificazioneEuropeaEdit.text()
+            print(f"[DEBUG] numeroCatalogo = '{numeroCatalogo}', classificazioneEuropea = '{classificazioneEuropea}'")
             cognomeCedente = self.cognomeCedenteEdit.text()
             nomeCedente = self.nomeCedenteEdit.text()
+            dataNascitaCedente = self.dataNascitaCedenteEdit.date().toString("dd/MM/yyyy")
             luogoNascitaCedente = self.luogoNascitaCedenteEdit.text()
             siglaProvinciaResidenzaCedente = self.siglaProvinciaResidenzaCedenteEdit.text()
             comuneResidenzaCedente = self.comuneResidenzaCedenteEdit.text()
@@ -1034,7 +1051,7 @@ class ArmaDialog(QDialog):
             indirizzoResidenzaCedente = self.indirizzoResidenzaCedenteEdit.text()
             civicoResidenzaCedente = self.civicoResidenzaCedenteEdit.text()
             telefonoCedente = self.telefonoCedenteEdit.text()
-            # Raccogli i dati per il luogo di detenzione
+            dataAcquisto = self.dataAcquistoEdit.date().toString("dd/MM/yyyy")
             comuneDetenzione = self.comuneDetenzioneEdit.text()
             provinciaDetenzione = self.provinciaDetenzioneEdit.text()
             tipoViaDetenzione = self.tipoViaDetenzioneEdit.text()
@@ -1042,82 +1059,76 @@ class ArmaDialog(QDialog):
             civicoDetenzione = self.civicoDetenzioneEdit.text()
             noteDetenzione = self.noteDetenzioneEdit.text()
 
-            # Ottieni le date formattate in formato stringa per il salvataggio nel database
-            dataAcquisto = self.dataAcquistoEdit.date().toString("dd/MM/yyyy")
-            dataNascitaCedente = self.dataNascitaCedenteEdit.date().toString("dd/MM/yyyy")
-
-            print(f"DEBUG - Salvataggio arma: ID Detentore={self.detentore_id}, Tipo={tipoArma}, Marca={marcaArma}")
-            print(f"DEBUG - Tipo cedente: {tipoCedente}")
-
+            # Se esiste un ID_ArmaDetenuta, faccio UPDATE
             if self.arma_data and self.arma_data.get('ID_ArmaDetenuta'):
-                # UPDATE per la modifica, aggiungiamo i nuovi campi
                 cursor.execute("""
                     UPDATE armi
-                    SET TipoArma=?, MarcaArma=?, ModelloArma=?, TipologiaArma=?, Matricola=?, CalibroArma=?, MatricolaCanna=?, LunghezzaCanna=?, NumeroCanne=?,
-                        ArmaLungaCorta=?, TipoCanna=?, CategoriaArma=?, FunzionamentoArma=?, CaricamentoArma=?, PunzoniArma=?, StatoProduzioneArma=?,
-                        ExOrdDem=?, TipoMunizioni=?, QuantitaMunizioni=?, TipoBossolo=?, TipoCedente=?, NoteArma=?, CognomeCedente=?, NomeCedente=?,
-                        DataNascitaCedente=?, LuogoNascitaCedente=?, SiglaProvinciaResidenzaCedente=?, ComuneResidenzaCedente=?, SiglaProvinciaNascitaCedente=?,
-                        TipoViaResidenzaCedente=?, IndirizzoResidenzaCedente=?, CivicoResidenzaCedente=?, TelefonoCedente=?, DataAcquisto=?,
-                        ComuneDetenzione=?, ProvinciaDetenzione=?, TipoViaDetenzione=?, IndirizzoDetenzione=?, CivicoDetenzione=?, NoteDetenzione=?
+                    SET TipoArma=?, MarcaArma=?, ModelloArma=?, TipologiaArma=?, Matricola=?, CalibroArma=?,
+                        MatricolaCanna=?, LunghezzaCanna=?, NumeroCanne=?, ArmaLungaCorta=?, TipoCanna=?,
+                        CategoriaArma=?, FunzionamentoArma=?, CaricamentoArma=?, PunzoniArma=?, StatoProduzioneArma=?,
+                        ExOrdDem=?, TipoMunizioni=?, QuantitaMunizioni=?, TipoBossolo=?, TipoCedente=?, NoteArma=?,
+                        NumeroCatalogo=?, ClassificazioneEuropea=?, CognomeCedente=?, NomeCedente=?, DataNascitaCedente=?,
+                        LuogoNascitaCedente=?, SiglaProvinciaResidenzaCedente=?, ComuneResidenzaCedente=?,
+                        SiglaProvinciaNascitaCedente=?, TipoViaResidenzaCedente=?, IndirizzoResidenzaCedente=?,
+                        CivicoResidenzaCedente=?, TelefonoCedente=?, DataAcquisto=?, ComuneDetenzione=?,
+                        ProvinciaDetenzione=?, TipoViaDetenzione=?, IndirizzoDetenzione=?, CivicoDetenzione=?,
+                        NoteDetenzione=?
                     WHERE ID_ArmaDetenuta=?
                 """, (
-                    # ... parametri esistenti ...
-                    tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma, matricolaCanna,
-                    lunghezzaCanna, numeroCanne,
-                    armaLungaCorta, tipoCanna, categoriaArma, funzionamentoArma, caricamentoArma, punzoniArma,
-                    statoProduzioneArma,
-                    exOrdDem, tipoMunizioni, quantitaMunizioni, tipoBossolo, tipoCedente, noteArma, cognomeCedente,
-                    nomeCedente,
-                    dataNascitaCedente, luogoNascitaCedente, siglaProvinciaResidenzaCedente, comuneResidenzaCedente,
-                    siglaProvinciaNascitaCedente,
-                    tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
-                    dataAcquisto,
-                    # Nuovi parametri
-                    comuneDetenzione, provinciaDetenzione, tipoViaDetenzione, indirizzoDetenzione,
-                    civicoDetenzione, noteDetenzione,
-                    self.arma_data.get('ID_ArmaDetenuta')
+                    tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma,
+                    matricolaCanna, lunghezzaCanna, numeroCanne, armaLungaCorta, tipoCanna,
+                    categoriaArma, funzionamentoArma, caricamentoArma, punzoniArma, statoProduzioneArma,
+                    exOrdDem, tipoMunizioni, quantitaMunizioni, tipoBossolo, tipoCedente, noteArma,
+                    numeroCatalogo, classificazioneEuropea, cognomeCedente, nomeCedente, dataNascitaCedente,
+                    luogoNascitaCedente, siglaProvinciaResidenzaCedente, comuneResidenzaCedente,
+                    siglaProvinciaNascitaCedente, tipoViaResidenzaCedente, indirizzoResidenzaCedente,
+                    civicoResidenzaCedente, telefonoCedente, dataAcquisto, comuneDetenzione,
+                    provinciaDetenzione, tipoViaDetenzione, indirizzoDetenzione, civicoDetenzione,
+                    noteDetenzione, self.arma_data.get('ID_ArmaDetenuta')
                 ))
             else:
-                # INSERT per un nuovo record, aggiungiamo i nuovi campi
-                cursor.execute("""
-                    INSERT INTO armi (ID_Detentore, TipoArma, MarcaArma, ModelloArma, TipologiaArma, Matricola, CalibroArma, MatricolaCanna, LunghezzaCanna,
-                        NumeroCanne, ArmaLungaCorta, TipoCanna, CategoriaArma, FunzionamentoArma, CaricamentoArma, PunzoniArma, StatoProduzioneArma,
-                        ExOrdDem, TipoMunizioni, QuantitaMunizioni, TipoBossolo, TipoCedente, NoteArma, CognomeCedente, NomeCedente, DataNascitaCedente,
-                        LuogoNascitaCedente, SiglaProvinciaResidenzaCedente, ComuneResidenzaCedente, SiglaProvinciaNascitaCedente, TipoViaResidenzaCedente,
-                        IndirizzoResidenzaCedente, CivicoResidenzaCedente, TelefonoCedente, DataAcquisto,
-                        ComuneDetenzione, ProvinciaDetenzione, TipoViaDetenzione, IndirizzoDetenzione, CivicoDetenzione, NoteDetenzione)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                            ?, ?, ?, ?, ?, ?)
-                """, (
-                    # ... parametri esistenti ...
-                    self.detentore_id, tipoArma, marcaArma, modelloArma, tipologiaArma, matricola, calibroArma,
-                    matricolaCanna, lunghezzaCanna,
-                    numeroCanne, armaLungaCorta, tipoCanna, categoriaArma, funzionamentoArma, caricamentoArma,
-                    punzoniArma, statoProduzioneArma,
-                    exOrdDem, tipoMunizioni, quantitaMunizioni, tipoBossolo, tipoCedente, noteArma, cognomeCedente,
-                    nomeCedente,
-                    dataNascitaCedente, luogoNascitaCedente, siglaProvinciaResidenzaCedente, comuneResidenzaCedente,
-                    siglaProvinciaNascitaCedente,
-                    tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente, telefonoCedente,
-                    dataAcquisto,
-                    # Nuovi parametri
-                    comuneDetenzione, provinciaDetenzione, tipoViaDetenzione, indirizzoDetenzione,
-                    civicoDetenzione, noteDetenzione
-                ))
-
-                print(f"DEBUG - Nuova arma inserita per detentore ID: {self.detentore_id}")
+                # Nuovo record: INSERT dinamico per mantenere cols/params allineati
+                cols = [
+                    "ID_Detentore", "TipoArma", "MarcaArma", "ModelloArma", "TipologiaArma",
+                    "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna", "NumeroCanne",
+                    "ArmaLungaCorta", "TipoCanna", "CategoriaArma", "FunzionamentoArma",
+                    "CaricamentoArma", "PunzoniArma", "StatoProduzioneArma", "ExOrdDem",
+                    "TipoMunizioni", "QuantitaMunizioni", "TipoBossolo", "TipoCedente", "NoteArma",
+                    "NumeroCatalogo", "ClassificazioneEuropea", "CognomeCedente", "NomeCedente",
+                    "DataNascitaCedente", "LuogoNascitaCedente", "SiglaProvinciaResidenzaCedente",
+                    "ComuneResidenzaCedente", "SiglaProvinciaNascitaCedente",
+                    "TipoViaResidenzaCedente", "IndirizzoResidenzaCedente", "CivicoResidenzaCedente",
+                    "TelefonoCedente", "DataAcquisto", "ComuneDetenzione", "ProvinciaDetenzione",
+                    "TipoViaDetenzione", "IndirizzoDetenzione", "CivicoDetenzione", "NoteDetenzione"
+                ]
+                qs = ", ".join("?" for _ in cols)
+                sql = f"INSERT INTO armi ({', '.join(cols)}) VALUES ({qs})"
+                params = [
+                    self.detentore_id, tipoArma, marcaArma, modelloArma, tipologiaArma,
+                    matricola, calibroArma, matricolaCanna, lunghezzaCanna, numeroCanne,
+                    armaLungaCorta, tipoCanna, categoriaArma, funzionamentoArma,
+                    caricamentoArma, punzoniArma, statoProduzioneArma, exOrdDem,
+                    tipoMunizioni, quantitaMunizioni, tipoBossolo, tipoCedente, noteArma,
+                    numeroCatalogo, classificazioneEuropea, cognomeCedente, nomeCedente,
+                    dataNascitaCedente, luogoNascitaCedente, siglaProvinciaResidenzaCedente,
+                    comuneResidenzaCedente, siglaProvinciaNascitaCedente,
+                    tipoViaResidenzaCedente, indirizzoResidenzaCedente, civicoResidenzaCedente,
+                    telefonoCedente, dataAcquisto, comuneDetenzione, provinciaDetenzione,
+                    tipoViaDetenzione, indirizzoDetenzione, civicoDetenzione, noteDetenzione
+                ]
+                print(f"[DEBUG] SQL: {sql}")
+                print(f"[DEBUG] params ({len(params)}): {params}")
+                cursor.execute(sql, params)
 
             conn.commit()
             QMessageBox.information(self, "Successo", "Arma salvata con successo!")
-
         except Exception as e:
-            print(f"ERRORE CRITICO durante il salvataggio dell'arma: {e}")
-            import traceback
+            print(f"ERRORE durante il salvataggio: {e}")
             traceback.print_exc()
-            QMessageBox.critical(self, "Errore", f"Errore durante il salvataggio dell'arma:\n{str(e)}")
+            QMessageBox.critical(self, "Errore", f"Errore durante il salvataggio:\n{e}")
             return False
         finally:
-            if 'conn' in locals() and conn:
+            if 'conn' in locals():
                 conn.close()
 
         self.accept()
@@ -1277,121 +1288,89 @@ class ArmaDialog(QDialog):
                     if conn:
                         conn.close()
 class DialogoMotivoEliminazione(QDialog):
-    def __init__(self, arma_data=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, arma_data=None, detentore_id=None):
+        """
+        Se arma_data è None, si tratta di un nuovo inserimento.
+        detentore_id è l'ID del detentore a cui l'arma appartiene.
+        """
+        super().__init__()
 
-        # Configura la finestra
-        self.setWindowTitle("Eliminazione Arma")
-        self.setMinimumWidth(450)
-        self.setModal(True)
+        # --- Recupero DataAcquisto se manca ---
+        if arma_data and 'DataAcquisto' not in arma_data:
+            try:
+                conn = sqlite3.connect("gestione_armi.db")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT DataAcquisto FROM armi WHERE ID_ArmaDetenuta = ?",
+                    (arma_data['ID_ArmaDetenuta'],)
+                )
+                row = cursor.fetchone()
+                arma_data['DataAcquisto'] = row[0] if row and row[0] else ''
+            except Exception as e:
+                print(f"Errore recupero DataAcquisto: {e}")
+                arma_data['DataAcquisto'] = ''
+            finally:
+                conn.close()
 
-        # Dati dell'arma per il riferimento
-        self.arma_data = arma_data
-
-        # Crea il layout principale
-        main_layout = QVBoxLayout()
-
-        # Gruppo informazioni arma
+        # --- Recupero campi luogo di detenzione se mancano ---
         if arma_data:
-            arma_group = QGroupBox("Dettagli Arma")
-            grid = QGridLayout()
+            campi_detenzione = [
+                'ComuneDetenzione', 'ProvinciaDetenzione', 'TipoViaDetenzione',
+                'IndirizzoDetenzione', 'CivicoDetenzione', 'NoteDetenzione'
+            ]
+            mancanti = [c for c in campi_detenzione if c not in arma_data]
+            if mancanti:
+                try:
+                    conn = sqlite3.connect("gestione_armi.db")
+                    cursor = conn.cursor()
+                    select_fields = ', '.join(mancanti)
+                    cursor.execute(
+                        f"SELECT {select_fields} FROM armi WHERE ID_ArmaDetenuta = ?",
+                        (arma_data['ID_ArmaDetenuta'],)
+                    )
+                    risultati = cursor.fetchone() or []
+                    for i, campo in enumerate(mancanti):
+                        arma_data[campo] = risultati[i] or ''
+                except Exception as e:
+                    print(f"Errore recupero luogo detenzione: {e}")
+                finally:
+                    conn.close()
 
-            grid.addWidget(QLabel("Marca:"), 0, 0)
-            grid.addWidget(QLabel(arma_data.get('MarcaArma', 'N/D')), 0, 1)
+        # --- NUOVO: recupero NumeroCatalogo e ClassificazioneEuropea se mancanti ---
+        if arma_data and (
+                'NumeroCatalogo' not in arma_data or
+                'ClassificazioneEuropea' not in arma_data
+        ):
+            try:
+                conn = sqlite3.connect("gestione_armi.db")
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT NumeroCatalogo, ClassificazioneEuropea FROM armi WHERE ID_ArmaDetenuta = ?",
+                    (arma_data['ID_ArmaDetenuta'],)
+                )
+                row = cursor.fetchone()
+                arma_data['NumeroCatalogo'] = row[0] if row and row[0] else ''
+                arma_data['ClassificazioneEuropea'] = row[1] if row and row[1] else ''
+            except Exception as e:
+                print(f"Errore recupero catalogo/classificazione: {e}")
+                arma_data['NumeroCatalogo'] = arma_data['ClassificazioneEuropea'] = ''
+            finally:
+                conn.close()
 
-            grid.addWidget(QLabel("Modello:"), 0, 2)
-            grid.addWidget(QLabel(arma_data.get('ModelloArma', 'N/D')), 0, 3)
+        # Resto dell’inizializzazione UI
+        self.arma_data = arma_data
+        self.detentore_id = detentore_id
+        self.setWindowTitle("Gestione Arma")
+        self.setMinimumWidth(850)
+        self.setMinimumHeight(600)
+        self._create_widgets()
+        self._setup_layout()
+        self._connect_signals()
 
-            grid.addWidget(QLabel("Matricola:"), 1, 0)
-            grid.addWidget(QLabel(arma_data.get('Matricola', 'N/D')), 1, 1)
+        if arma_data:
+            self.populate_fields(arma_data)
 
-            grid.addWidget(QLabel("Tipo:"), 1, 2)
-            grid.addWidget(QLabel(arma_data.get('TipoArma', 'N/D')), 1, 3)
-
-            arma_group.setLayout(grid)
-            main_layout.addWidget(arma_group)
-
-        # Gruppo motivo eliminazione
-        motivo_group = QGroupBox("Motivazione Eliminazione")
-        motivo_layout = QVBoxLayout()
-
-        # Etichetta informativa
-        info_label = QLabel("Selezionare il motivo dell'eliminazione dell'arma dal sistema:")
-        info_label.setWordWrap(True)
-        motivo_layout.addWidget(info_label)
-
-        # ComboBox per motivi predefiniti
-        self.comboMotivi = QComboBox()
-        self.comboMotivi.addItems([
-            "ERRORE DI REGISTRAZIONE",
-            "ARMA DISTRUTTA/ROTTAMATA",
-            "SEGNALAZIONE SMARRIMENTO/FURTO",
-            "AGGIORNAMENTO DATI (DUPLICATA)",
-            "TRASFERIMENTO A SOGGETTO NON TRACCIATO",
-            "CONFISCA AUTORITÀ",
-            "ALTRO (SPECIFICARE)"
-        ])
-        motivo_layout.addWidget(self.comboMotivi)
-
-        # Campo per motivo personalizzato
-        self.motivoPersonalizzatoLabel = QLabel("Specificare motivo:")
-        self.motivoPersonalizzatoEdit = QLineEdit()
-        motivo_layout.addWidget(self.motivoPersonalizzatoLabel)
-        motivo_layout.addWidget(self.motivoPersonalizzatoEdit)
-
-        # Riferimento a documento
-        self.riferimentoDocGroup = QGroupBox("Riferimento Documento (opzionale)")
-        riferimento_layout = QFormLayout()
-        self.tipoDocumentoEdit = QLineEdit()
-        self.numeroDocumentoEdit = QLineEdit()
-        self.dataDocumentoEdit = QDateEdit()
-        self.dataDocumentoEdit.setCalendarPopup(True)
-        self.dataDocumentoEdit.setDate(QDate.currentDate())
-        self.enteRilascioEdit = QLineEdit()
-
-        riferimento_layout.addRow("Tipo documento:", self.tipoDocumentoEdit)
-        riferimento_layout.addRow("Numero:", self.numeroDocumentoEdit)
-        riferimento_layout.addRow("Data:", self.dataDocumentoEdit)
-        riferimento_layout.addRow("Ente rilascio:", self.enteRilascioEdit)
-        self.riferimentoDocGroup.setLayout(riferimento_layout)
-
-        # Note aggiuntive
-        self.noteAggiuntiveLabel = QLabel("Note aggiuntive:")
-        self.noteAggiuntiveEdit = QLineEdit()
-
-        # Aggiungi tutti gli elementi al layout del gruppo
-        motivo_group.setLayout(motivo_layout)
-        main_layout.addWidget(motivo_group)
-        main_layout.addWidget(self.riferimentoDocGroup)
-        main_layout.addWidget(self.noteAggiuntiveLabel)
-        main_layout.addWidget(self.noteAggiuntiveEdit)
-
-        # Pulsanti di conferma/annulla
-        buttons_layout = QHBoxLayout()
-        self.btnConferma = QPushButton("Conferma eliminazione")
-        self.btnConferma.setStyleSheet("background-color: #d9534f; color: white;")
-        self.btnAnnulla = QPushButton("Annulla")
-
-        buttons_layout.addWidget(self.btnAnnulla)
-        buttons_layout.addWidget(self.btnConferma)
-        main_layout.addLayout(buttons_layout)
-
-        self.setLayout(main_layout)
-
-        # Connessioni
-        self.comboMotivi.currentIndexChanged.connect(self.on_motivo_changed)
-        self.btnConferma.clicked.connect(self.accept)
-        self.btnAnnulla.clicked.connect(self.reject)
-
-        # Inizializza la vista
-        self.on_motivo_changed(0)
-
-        # Converti tutto in maiuscolo
-        self.motivoPersonalizzatoEdit.textChanged.connect(self.convert_to_uppercase)
-        self.tipoDocumentoEdit.textChanged.connect(self.convert_to_uppercase)
-        self.numeroDocumentoEdit.textChanged.connect(self.convert_to_uppercase)
-        self.enteRilascioEdit.textChanged.connect(self.convert_to_uppercase)
-        self.noteAggiuntiveEdit.textChanged.connect(self.convert_to_uppercase)
+        convert_all_lineedits_to_uppercase(self)
 
     def on_motivo_changed(self, index):
         """Gestisce la visibilità del campo motivo personalizzato"""

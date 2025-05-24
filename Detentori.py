@@ -704,45 +704,64 @@ class InserisciDetentoreDialog(QDialog):
 
     def modifica_arma(self, row, column):
         """Apre la finestra di dialogo per modificare un'arma"""
-        from PyQt5.QtWidgets import QDialog
+        from PyQt5.QtWidgets import QDialog, QMessageBox
+        from PyQt5.QtCore import Qt
+        from Detentori import DatabaseManager
+        from ArmiDialog import ArmaDialog
 
-        # Recupera l'ID dell'arma dal primo item della riga
+        # Ottengo l'ID dell'arma selezionata
         id_item = self.armiTable.item(row, 0)
-        if id_item:
-            arma_id = id_item.data(Qt.UserRole)
+        if not id_item:
+            return
+        arma_id = id_item.data(Qt.UserRole)
 
-            try:
-                # Importa DatabaseManager dal file in cui è definito (ad es. Detentori.py)
-                from Detentori import DatabaseManager
-                db_manager = DatabaseManager()
-                conn = db_manager.get_connection()
-                cursor = conn.cursor()
+        try:
+            # Connessione al DB
+            db_manager = DatabaseManager()
+            conn = db_manager.get_connection()
+            cursor = conn.cursor()
 
-                cursor.execute("SELECT * FROM armi WHERE ID_ArmaDetenuta = ?", (arma_id,))
-                row_data = cursor.fetchone()
-                # Non chiudiamo la connessione qui; la gestione centralizzata si occuperà di chiuderla al termine dell'app
+            # Lista esplicita dei campi in ordine (includo i nuovi alla fine)
+            columns = [
+                "ID_ArmaDetenuta", "ID_Detentore", "TipoArma", "MarcaArma", "ModelloArma",
+                "TipologiaArma", "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna",
+                "NumeroCanne", "ArmaLungaCorta", "TipoCanna", "CategoriaArma", "FunzionamentoArma",
+                "CaricamentoArma", "PunzoniArma", "StatoProduzioneArma", "ExOrdDem",
+                "TipoMunizioni", "QuantitaMunizioni", "TipoBossolo", "TipoCedente", "NoteArma",
+                # campi cedente
+                "CognomeCedente", "NomeCedente", "DataNascitaCedente", "LuogoNascitaCedente",
+                "SiglaProvinciaResidenzaCedente", "ComuneResidenzaCedente",
+                "SiglaProvinciaNascitaCedente", "TipoViaResidenzaCedente",
+                "IndirizzoResidenzaCedente", "CivicoResidenzaCedente", "TelefonoCedente",
+                # data e luogo detenzione
+                "DataAcquisto", "ComuneDetenzione", "ProvinciaDetenzione",
+                "TipoViaDetenzione", "IndirizzoDetenzione", "CivicoDetenzione", "NoteDetenzione",
+                # i due nuovi campi
+                "NumeroCatalogo", "ClassificazioneEuropea"
+            ]
 
-                if row_data:
-                    columns = ["ID_ArmaDetenuta", "ID_Detentore", "TipoArma", "MarcaArma", "ModelloArma",
-                               "TipologiaArma", "Matricola", "CalibroArma", "MatricolaCanna", "LunghezzaCanna",
-                               "NumeroCanne",
-                               "ArmaLungaCorta", "TipoCanna", "CategoriaArma", "FunzionamentoArma", "CaricamentoArma",
-                               "PunzoniArma", "StatoProduzioneArma", "ExOrdDem", "TipoMunizioni", "QuantitaMunizioni",
-                               "TipoBossolo", "TipoCedente", "NoteArma", "CognomeCedente", "NomeCedente",
-                               "DataNascitaCedente", "LuogoNascitaCedente", "SiglaProvinciaResidenzaCedente",
-                               "ComuneResidenzaCedente", "SiglaProvinciaNascitaCedente", "TipoViaResidenzaCedente",
-                               "IndirizzoResidenzaCedente", "CivicoResidenzaCedente", "TelefonoCedente"]
+            # Costruisco la SELECT con le colonne esplicite
+            sql = f"SELECT {','.join(columns)} FROM armi WHERE ID_ArmaDetenuta = ?"
+            cursor.execute(sql, (arma_id,))
+            row_data = cursor.fetchone()
+            if not row_data:
+                QMessageBox.warning(self, "Attenzione", "Arma non trovata.")
+                return
 
-                    arma_data = dict(zip(columns, row_data))
+            # Mappo i valori al dizionario
+            arma_data = dict(zip(columns, row_data))
 
-                    from ArmiDialog import ArmaDialog
-                    det_id = self.detentore_data.get('id') if self.detentore_data else None
-                    dialog = ArmaDialog(arma_data=arma_data, detentore_id=det_id)
-                    if dialog.exec_() == QDialog.Accepted:
-                        self.carica_armi()
+            # Apre il dialog di modifica/passaggio dati
+            det_id = self.detentore_data.get('id') if self.detentore_data else None
+            dialog = ArmaDialog(arma_data=arma_data, detentore_id=det_id)
+            if dialog.exec_() == QDialog.Accepted:
+                self.carica_armi()
 
-            except Exception as e:
-                QMessageBox.critical(self, "Errore", f"Errore durante il caricamento dell'arma: {str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Errore", f"Errore durante il caricamento dell'arma:\n{e}")
+        finally:
+            if 'conn' in locals():
+                conn.close()
 
     def carica_armi(self):
         """Carica le armi del detentore nella tabella"""

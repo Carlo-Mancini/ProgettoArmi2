@@ -1,0 +1,224 @@
+2025-05-24 16:29:45,311 - GeneraDenuncia - INFO - Avvio generazione denuncia per ID_Detentore = 3
+2025-05-24 16:29:45,328 - GeneraDenuncia - DEBUG - Esecuzione query detentore con ID: 3
+2025-05-24 16:29:45,329 - GeneraDenuncia - DEBUG - Detentore trovato: CARLO MANCINI
+2025-05-24 16:29:45,330 - GeneraDenuncia - DEBUG - Il detentore con ID 3 ha 2 armi nel database
+2025-05-24 16:29:45,330 - GeneraDenuncia - DEBUG - Esecuzione query armi per detentore ID: 3
+2025-05-24 16:29:45,330 - GeneraDenuncia - DEBUG - Query: 
+            SELECT 
+                ID_ArmaDetenuta, TipoArma, MarcaArma, ModelloArma, Matricola, 
+                CalibroArma, NoteArma, CategoriaArma, LunghezzaCanna, NumeroCanne,
+                FunzionamentoArma, CaricamentoArma, ArmaLungaCorta, TipologiaArma
+            FROM armi 
+            WHERE ID_Detentore = ?
+            ORDER BY CategoriaArma, MarcaArma, ModelloArma
+        
+2025-05-24 16:29:45,330 - GeneraDenuncia - DEBUG - Numero di armi trovate: 2
+2025-05-24 16:29:45,330 - GeneraDenuncia - DEBUG - Elaborazione arma 1: (7, 'PISTOLA', 'BERETTA', 'SSSSS', '1111', '1111', '', 'ARMA DA CACCIA', '', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'SSSSS')
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 1}
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Elaborazione arma 2: (8, 'PISTOLA', 'BERETTA', '', 'SDASDSDSA', '', '', 'USO SPORTIVO', 'SADD', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', '')
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Categorie di armi trovate: ['ARMA DA CACCIA', 'USO SPORTIVO']
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Ricerca template: denuncia_professionale_template.docx
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\templates\denuncia_professionale_template.docx
+2025-05-24 16:29:45,331 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\denuncia_professionale_template.docx
+2025-05-24 16:29:45,332 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 16:29:45,332 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 16:29:45,332 - GeneraDenuncia - WARNING - Template 'denuncia_professionale_template.docx' non trovato!
+2025-05-24 16:29:45,332 - GeneraDenuncia - DEBUG - Ricerca template: Denuncia_armi_completo.docx
+2025-05-24 16:29:45,332 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 16:29:45,332 - GeneraDenuncia - DEBUG - Template trovato in: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 16:29:45,332 - GeneraDenuncia - INFO - Usando template: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 16:29:45,335 - GeneraDenuncia - DEBUG - Contesto preparato con 2 armi in 2 categorie
+2025-05-24 16:29:45,335 - GeneraDenuncia - DEBUG - Contesto per il template: {'comando_stazione': 'COMANDO STAZIONE CARABINIERI', 'cognome': 'MANCINI', 'nome': 'CARLO', 'codice_fiscale': 'MNCCRL93A29G596S', 'data_nascita': '29/01/1993', 'luogo_nascita': 'PIEDIMONTE MATESE', 'provincia_nascita': 'CE', 'comune_residenza': 'TEANO', 'provincia_residenza': 'CE', 'indirizzo_residenza': '', 'tipo_via': '', 'via': '', 'civico': '', 'telefono': '', 'tipologia_titolo': 'NESSUN TITOLO', 'numero_porto_armi': 'N/D', 'data_rilascio': 'N/D', 'ente_rilascio': 'N/D', 'comune_detenzione': 'TEANO', 'provincia_detenzione': 'CE', 'tipo_via_detenzione': '', 'via_detenzione': '', 'civico_detenzione': '', 'indirizzo_detenzione': '', 'armi': [{'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 1}, {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}], 'categorie': [{'nome': 'ARMA DA CACCIA', 'count': 1, 'armi': [{'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 1}]}, {'nome': 'USO SPORTIVO', 'count': 1, 'armi': [{'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}]}], 'data_documento': '24/05/2025', 'num_armi': 2, 'num_categorie': 2, 'sesso': 'M', 'user': 'carlo', 'timestamp': '2025-05-24 16:29:45'}
+2025-05-24 16:29:45,335 - GeneraDenuncia - DEBUG - Numero di armi nel contesto: 2
+2025-05-24 16:29:45,335 - GeneraDenuncia - DEBUG - Numero di categorie nel contesto: 2
+2025-05-24 16:29:52,417 - GeneraDenuncia - INFO - Documento salvato in: C:/Users/carlo/Desktop/Denuncia_Armi_MANCINI_CARLO_24_05_2025.docx
+2025-05-24 16:29:53,754 - GeneraDenuncia - INFO - Apertura documento...
+2025-05-24 17:29:30,412 - GeneraDenuncia - INFO - Avvio generazione denuncia per ID_Detentore = 3
+2025-05-24 17:29:30,425 - GeneraDenuncia - DEBUG - Esecuzione query detentore con ID: 3
+2025-05-24 17:29:30,426 - GeneraDenuncia - DEBUG - Detentore trovato: CARLO MANCINI
+2025-05-24 17:29:30,427 - GeneraDenuncia - DEBUG - Il detentore con ID 3 ha 3 armi nel database
+2025-05-24 17:29:30,427 - GeneraDenuncia - DEBUG - Esecuzione query armi per detentore ID: 3
+2025-05-24 17:29:30,427 - GeneraDenuncia - DEBUG - Query: 
+            SELECT 
+                ID_ArmaDetenuta, TipoArma, MarcaArma, ModelloArma, Matricola, 
+                CalibroArma, NoteArma, CategoriaArma, LunghezzaCanna, NumeroCanne,
+                FunzionamentoArma, CaricamentoArma, ArmaLungaCorta, TipologiaArma
+            FROM armi 
+            WHERE ID_Detentore = ?
+            ORDER BY CategoriaArma, MarcaArma, ModelloArma
+        
+2025-05-24 17:29:30,427 - GeneraDenuncia - DEBUG - Numero di armi trovate: 3
+2025-05-24 17:29:30,427 - GeneraDenuncia - DEBUG - Elaborazione arma 1: (9, 'PISTOLA', 'BERETTA', 'ADASDD', 'DSD', 'DASS', 'ASD', 'ARMA DA CACCIA', 'SDSD', 'SDS', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'ASDSD')
+2025-05-24 17:29:30,427 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Elaborazione arma 2: (7, 'PISTOLA', 'BERETTA', 'SSSSS', '1111', '1111', '', 'ARMA DA COLLEZIONE', '', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'SSSSS')
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Elaborazione arma 3: (8, 'PISTOLA', 'BERETTA', '', 'SDASDSDSA', '', '', 'USO SPORTIVO', 'SADD', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', '')
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Categorie di armi trovate: ['ARMA DA CACCIA', 'ARMA DA COLLEZIONE', 'USO SPORTIVO']
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Ricerca template: denuncia_professionale_template.docx
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:29:30,428 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\templates\denuncia_professionale_template.docx
+2025-05-24 17:29:30,429 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\denuncia_professionale_template.docx
+2025-05-24 17:29:30,429 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:29:30,429 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:29:30,431 - GeneraDenuncia - WARNING - Template 'denuncia_professionale_template.docx' non trovato!
+2025-05-24 17:29:30,431 - GeneraDenuncia - DEBUG - Ricerca template: Denuncia_armi_completo.docx
+2025-05-24 17:29:30,431 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:29:30,431 - GeneraDenuncia - DEBUG - Template trovato in: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:29:30,431 - GeneraDenuncia - INFO - Usando template: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:29:30,432 - GeneraDenuncia - DEBUG - Contesto preparato con 3 armi in 3 categorie
+2025-05-24 17:29:30,432 - GeneraDenuncia - DEBUG - Contesto per il template: {'comando_stazione': 'COMANDO STAZIONE CARABINIERI', 'cognome': 'MANCINI', 'nome': 'CARLO', 'codice_fiscale': 'MNCCRL93A29G596S', 'data_nascita': '29/01/1993', 'luogo_nascita': 'PIEDIMONTE MATESE', 'provincia_nascita': 'CE', 'comune_residenza': 'TEANO', 'provincia_residenza': 'CE', 'indirizzo_residenza': '', 'tipo_via': '', 'via': '', 'civico': '', 'telefono': '', 'tipologia_titolo': 'NESSUN TITOLO', 'numero_porto_armi': 'N/D', 'data_rilascio': 'N/D', 'ente_rilascio': 'N/D', 'comune_detenzione': 'TEANO', 'provincia_detenzione': 'CE', 'tipo_via_detenzione': '', 'via_detenzione': '', 'civico_detenzione': '', 'indirizzo_detenzione': '', 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}, {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}, {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}], 'categorie': [{'nome': 'ARMA DA CACCIA', 'count': 1, 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}]}, {'nome': 'ARMA DA COLLEZIONE', 'count': 1, 'armi': [{'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}]}, {'nome': 'USO SPORTIVO', 'count': 1, 'armi': [{'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}]}], 'data_documento': '24/05/2025', 'num_armi': 3, 'num_categorie': 3, 'sesso': 'M', 'user': 'carlo', 'timestamp': '2025-05-24 17:29:30'}
+2025-05-24 17:29:30,434 - GeneraDenuncia - DEBUG - Numero di armi nel contesto: 3
+2025-05-24 17:29:30,434 - GeneraDenuncia - DEBUG - Numero di categorie nel contesto: 3
+2025-05-24 17:29:36,303 - GeneraDenuncia - INFO - Documento salvato in: C:/Users/carlo/Desktop/Denuncia_Armi_MANCINI_CARLO_24_05_2025.docx
+2025-05-24 17:29:37,122 - GeneraDenuncia - INFO - Apertura documento...
+2025-05-24 17:31:25,781 - GeneraDenuncia - INFO - Avvio generazione denuncia per ID_Detentore = 3
+2025-05-24 17:31:25,793 - GeneraDenuncia - DEBUG - Esecuzione query detentore con ID: 3
+2025-05-24 17:31:25,794 - GeneraDenuncia - DEBUG - Detentore trovato: CARLO MANCINI
+2025-05-24 17:31:25,794 - GeneraDenuncia - DEBUG - Il detentore con ID 3 ha 3 armi nel database
+2025-05-24 17:31:25,794 - GeneraDenuncia - DEBUG - Esecuzione query armi per detentore ID: 3
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Query: 
+            SELECT 
+                ID_ArmaDetenuta, TipoArma, MarcaArma, ModelloArma, Matricola, 
+                CalibroArma, NoteArma, CategoriaArma, LunghezzaCanna, NumeroCanne,
+                FunzionamentoArma, CaricamentoArma, ArmaLungaCorta, TipologiaArma
+            FROM armi 
+            WHERE ID_Detentore = ?
+            ORDER BY CategoriaArma, MarcaArma, ModelloArma
+        
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Numero di armi trovate: 3
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Elaborazione arma 1: (9, 'PISTOLA', 'BERETTA', 'ADASDD', 'DSD', 'DASS', 'ASD', 'ARMA DA CACCIA', 'SDSD', 'SDS', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'ASDSD')
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Elaborazione arma 2: (7, 'PISTOLA', 'BERETTA', 'SSSSS', '1111', '1111', '', 'ARMA DA COLLEZIONE', '', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'SSSSS')
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Elaborazione arma 3: (8, 'PISTOLA', 'BERETTA', '', 'SDASDSDSA', '', '', 'USO SPORTIVO', 'SADD', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', '')
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:31:25,795 - GeneraDenuncia - DEBUG - Categorie di armi trovate: ['ARMA DA CACCIA', 'ARMA DA COLLEZIONE', 'USO SPORTIVO']
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Ricerca template: denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\templates\denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:31:25,796 - GeneraDenuncia - WARNING - Template 'denuncia_professionale_template.docx' non trovato!
+2025-05-24 17:31:25,797 - GeneraDenuncia - DEBUG - Ricerca template: Denuncia_armi_completo.docx
+2025-05-24 17:31:25,797 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:31:25,797 - GeneraDenuncia - DEBUG - Template trovato in: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:31:25,797 - GeneraDenuncia - INFO - Usando template: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:31:25,799 - GeneraDenuncia - DEBUG - Contesto preparato con 3 armi in 3 categorie
+2025-05-24 17:31:25,799 - GeneraDenuncia - DEBUG - Contesto per il template: {'comando_stazione': 'COMANDO STAZIONE CARABINIERI', 'cognome': 'MANCINI', 'nome': 'CARLO', 'codice_fiscale': 'MNCCRL93A29G596S', 'data_nascita': '29/01/1993', 'luogo_nascita': 'PIEDIMONTE MATESE', 'provincia_nascita': 'CE', 'comune_residenza': 'TEANO', 'provincia_residenza': 'CE', 'indirizzo_residenza': '', 'tipo_via': '', 'via': '', 'civico': '', 'telefono': '', 'tipologia_titolo': 'NESSUN TITOLO', 'numero_porto_armi': 'N/D', 'data_rilascio': 'N/D', 'ente_rilascio': 'N/D', 'comune_detenzione': 'TEANO', 'provincia_detenzione': 'CE', 'tipo_via_detenzione': '', 'via_detenzione': '', 'civico_detenzione': '', 'indirizzo_detenzione': '', 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}, {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}, {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}], 'categorie': [{'nome': 'ARMA DA CACCIA', 'count': 1, 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}]}, {'nome': 'ARMA DA COLLEZIONE', 'count': 1, 'armi': [{'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}]}, {'nome': 'USO SPORTIVO', 'count': 1, 'armi': [{'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}]}], 'data_documento': '24/05/2025', 'num_armi': 3, 'num_categorie': 3, 'sesso': 'M', 'user': 'carlo', 'timestamp': '2025-05-24 17:31:25'}
+2025-05-24 17:31:25,799 - GeneraDenuncia - DEBUG - Numero di armi nel contesto: 3
+2025-05-24 17:31:25,799 - GeneraDenuncia - DEBUG - Numero di categorie nel contesto: 3
+2025-05-24 17:31:31,027 - GeneraDenuncia - INFO - Documento salvato in: C:/Users/carlo/Desktop/Denuncia_Armi_MANCINI_CARLO_24_05_2025.docx
+2025-05-24 17:31:31,961 - GeneraDenuncia - INFO - Apertura documento...
+2025-05-24 17:37:34,860 - GeneraDenuncia - INFO - Avvio generazione denuncia per ID_Detentore = 3
+2025-05-24 17:37:34,871 - GeneraDenuncia - DEBUG - Esecuzione query detentore con ID: 3
+2025-05-24 17:37:34,872 - GeneraDenuncia - DEBUG - Detentore trovato: CARLO MANCINI
+2025-05-24 17:37:34,872 - GeneraDenuncia - DEBUG - Il detentore con ID 3 ha 3 armi nel database
+2025-05-24 17:37:34,873 - GeneraDenuncia - DEBUG - Esecuzione query armi per detentore ID: 3
+2025-05-24 17:37:34,873 - GeneraDenuncia - DEBUG - Query: 
+            SELECT 
+                ID_ArmaDetenuta, TipoArma, MarcaArma, ModelloArma, Matricola, 
+                CalibroArma, NoteArma, CategoriaArma, LunghezzaCanna, NumeroCanne,
+                FunzionamentoArma, CaricamentoArma, ArmaLungaCorta, TipologiaArma
+            FROM armi 
+            WHERE ID_Detentore = ?
+            ORDER BY CategoriaArma, MarcaArma, ModelloArma
+        
+2025-05-24 17:37:34,873 - GeneraDenuncia - DEBUG - Numero di armi trovate: 3
+2025-05-24 17:37:34,873 - GeneraDenuncia - DEBUG - Elaborazione arma 1: (9, 'PISTOLA', 'BERETTA', 'ADASDD', 'DSD', 'DASS', 'ASD', 'ARMA DA CACCIA', 'SDSD', 'SDS', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'ASDSD')
+2025-05-24 17:37:34,873 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}
+2025-05-24 17:37:34,873 - GeneraDenuncia - DEBUG - Elaborazione arma 2: (7, 'PISTOLA', 'BERETTA', 'SSSSS', '1111', '1111', '', 'ARMA DA COLLEZIONE', '', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'SSSSS')
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Elaborazione arma 3: (8, 'PISTOLA', 'BERETTA', '', 'SDASDSDSA', '', '', 'USO SPORTIVO', 'SADD', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', '')
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Categorie di armi trovate: ['ARMA DA CACCIA', 'ARMA DA COLLEZIONE', 'USO SPORTIVO']
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Ricerca template: denuncia_professionale_template.docx
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\templates\denuncia_professionale_template.docx
+2025-05-24 17:37:34,874 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\denuncia_professionale_template.docx
+2025-05-24 17:37:34,875 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:37:34,875 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:37:34,876 - GeneraDenuncia - WARNING - Template 'denuncia_professionale_template.docx' non trovato!
+2025-05-24 17:37:34,876 - GeneraDenuncia - DEBUG - Ricerca template: Denuncia_armi_completo.docx
+2025-05-24 17:37:34,876 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:37:34,876 - GeneraDenuncia - DEBUG - Template trovato in: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:37:34,876 - GeneraDenuncia - INFO - Usando template: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:37:34,879 - GeneraDenuncia - DEBUG - Contesto preparato con 3 armi in 3 categorie
+2025-05-24 17:37:34,879 - GeneraDenuncia - DEBUG - Contesto per il template: {'comando_stazione': 'COMANDO STAZIONE CARABINIERI', 'cognome': 'MANCINI', 'nome': 'CARLO', 'codice_fiscale': 'MNCCRL93A29G596S', 'data_nascita': '29/01/1993', 'luogo_nascita': 'PIEDIMONTE MATESE', 'provincia_nascita': 'CE', 'comune_residenza': 'TEANO', 'provincia_residenza': 'CE', 'indirizzo_residenza': '', 'tipo_via': '', 'via': '', 'civico': '', 'telefono': '', 'tipologia_titolo': 'NESSUN TITOLO', 'numero_porto_armi': 'N/D', 'data_rilascio': 'N/D', 'ente_rilascio': 'N/D', 'comune_detenzione': 'TEANO', 'provincia_detenzione': 'CE', 'tipo_via_detenzione': '', 'via_detenzione': '', 'civico_detenzione': '', 'indirizzo_detenzione': '', 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}, {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}, {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}], 'categorie': [{'nome': 'ARMA DA CACCIA', 'count': 1, 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}]}, {'nome': 'ARMA DA COLLEZIONE', 'count': 1, 'armi': [{'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}]}, {'nome': 'USO SPORTIVO', 'count': 1, 'armi': [{'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}]}], 'data_documento': '24/05/2025', 'num_armi': 3, 'num_categorie': 3, 'sesso': 'M', 'user': 'carlo', 'timestamp': '2025-05-24 17:37:34'}
+2025-05-24 17:37:34,879 - GeneraDenuncia - DEBUG - Numero di armi nel contesto: 3
+2025-05-24 17:37:34,879 - GeneraDenuncia - DEBUG - Numero di categorie nel contesto: 3
+2025-05-24 17:37:34,939 - GeneraDenuncia - ERROR - Errore durante la renderizzazione del template: Encountered unknown tag 'table'. Jinja was looking for the following tags: 'elif' or 'else' or 'endif'. The innermost block that needs to be closed is 'if'.
+2025-05-24 17:37:34,963 - GeneraDenuncia - ERROR - Traceback (most recent call last):
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\GeneraDenuncia.py", line 545, in crea_documento_denuncia
+    doc.render(context)
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\docxtpl\template.py", line 484, in render
+    xml_src = self.build_xml(context, jinja_env)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\docxtpl\template.py", line 431, in build_xml
+    xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\docxtpl\template.py", line 317, in render_xml_part
+    raise exc
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\docxtpl\template.py", line 307, in render_xml_part
+    template = Template(src_xml)
+               ^^^^^^^^^^^^^^^^^
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\jinja2\environment.py", line 1214, in __new__
+    return env.from_string(source, template_class=cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\jinja2\environment.py", line 1111, in from_string
+    return cls.from_code(self, self.compile(source), gs, None)
+                               ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\jinja2\environment.py", line 771, in compile
+    self.handle_exception(source=source_hint)
+  File "C:\Users\carlo\Desktop\ProgettoArmi2\venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<unknown>", line 31, in template
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'table'. Jinja was looking for the following tags: 'elif' or 'else' or 'endif'. The innermost block that needs to be closed is 'if'.
+
+2025-05-24 17:40:30,902 - GeneraDenuncia - INFO - Avvio generazione denuncia per ID_Detentore = 3
+2025-05-24 17:40:30,915 - GeneraDenuncia - DEBUG - Esecuzione query detentore con ID: 3
+2025-05-24 17:40:30,916 - GeneraDenuncia - DEBUG - Detentore trovato: CARLO MANCINI
+2025-05-24 17:40:30,916 - GeneraDenuncia - DEBUG - Il detentore con ID 3 ha 3 armi nel database
+2025-05-24 17:40:30,916 - GeneraDenuncia - DEBUG - Esecuzione query armi per detentore ID: 3
+2025-05-24 17:40:30,916 - GeneraDenuncia - DEBUG - Query: 
+            SELECT 
+                ID_ArmaDetenuta, TipoArma, MarcaArma, ModelloArma, Matricola, 
+                CalibroArma, NoteArma, CategoriaArma, LunghezzaCanna, NumeroCanne,
+                FunzionamentoArma, CaricamentoArma, ArmaLungaCorta, TipologiaArma
+            FROM armi 
+            WHERE ID_Detentore = ?
+            ORDER BY CategoriaArma, MarcaArma, ModelloArma
+        
+2025-05-24 17:40:30,916 - GeneraDenuncia - DEBUG - Numero di armi trovate: 3
+2025-05-24 17:40:30,916 - GeneraDenuncia - DEBUG - Elaborazione arma 1: (9, 'PISTOLA', 'BERETTA', 'ADASDD', 'DSD', 'DASS', 'ASD', 'ARMA DA CACCIA', 'SDSD', 'SDS', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'ASDSD')
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Elaborazione arma 2: (7, 'PISTOLA', 'BERETTA', 'SSSSS', '1111', '1111', '', 'ARMA DA COLLEZIONE', '', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', 'SSSSS')
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Elaborazione arma 3: (8, 'PISTOLA', 'BERETTA', '', 'SDASDSDSA', '', '', 'USO SPORTIVO', 'SADD', '', 'SEMIAUTOMATICO', 'AVANCARICA', 'ARMA LUNGA', '')
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Arma formattata: {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Categorie di armi trovate: ['ARMA DA CACCIA', 'ARMA DA COLLEZIONE', 'USO SPORTIVO']
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Ricerca template: denuncia_professionale_template.docx
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\templates\denuncia_professionale_template.docx
+2025-05-24 17:40:30,917 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\venv\Scripts\denuncia_professionale_template.docx
+2025-05-24 17:40:30,918 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\denuncia_professionale_template.docx
+2025-05-24 17:40:30,918 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\denuncia_professionale_template.docx
+2025-05-24 17:40:30,918 - GeneraDenuncia - WARNING - Template 'denuncia_professionale_template.docx' non trovato!
+2025-05-24 17:40:30,918 - GeneraDenuncia - DEBUG - Ricerca template: Denuncia_armi_completo.docx
+2025-05-24 17:40:30,918 - GeneraDenuncia - DEBUG - Verifica percorso: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:40:30,918 - GeneraDenuncia - DEBUG - Template trovato in: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:40:30,918 - GeneraDenuncia - INFO - Usando template: C:\Users\carlo\Desktop\ProgettoArmi2\templates\Denuncia_armi_completo.docx
+2025-05-24 17:40:30,920 - GeneraDenuncia - DEBUG - Contesto preparato con 3 armi in 3 categorie
+2025-05-24 17:40:30,920 - GeneraDenuncia - DEBUG - Contesto per il template: {'comando_stazione': 'COMANDO STAZIONE CARABINIERI', 'cognome': 'MANCINI', 'nome': 'CARLO', 'codice_fiscale': 'MNCCRL93A29G596S', 'data_nascita': '29/01/1993', 'luogo_nascita': 'PIEDIMONTE MATESE', 'provincia_nascita': 'CE', 'comune_residenza': 'TEANO', 'provincia_residenza': 'CE', 'indirizzo_residenza': '', 'tipo_via': '', 'via': '', 'civico': '', 'telefono': '', 'tipologia_titolo': 'NESSUN TITOLO', 'numero_porto_armi': 'N/D', 'data_rilascio': 'N/D', 'ente_rilascio': 'N/D', 'comune_detenzione': 'TEANO', 'provincia_detenzione': 'CE', 'tipo_via_detenzione': '', 'via_detenzione': '', 'civico_detenzione': '', 'indirizzo_detenzione': '', 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}, {'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}, {'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}], 'categorie': [{'nome': 'ARMA DA CACCIA', 'count': 1, 'armi': [{'id': 9, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'ADASDD', 'matricola': 'DSD', 'calibro': 'DASS', 'note': 'ASD', 'categoria': 'ARMA DA CACCIA', 'lung_canna': 'SDSD', 'num_canne': 'SDS', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'ASDSD', 'descrizione_completa': 'PISTOLA BERETTA ADASDD cal. DASS - ASD', 'catalogo': 'N/D', 'categoria_ordine': 1}]}, {'nome': 'ARMA DA COLLEZIONE', 'count': 1, 'armi': [{'id': 7, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'SSSSS', 'matricola': '1111', 'calibro': '1111', 'note': '', 'categoria': 'ARMA DA COLLEZIONE', 'lung_canna': 'N/D', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'SSSSS', 'descrizione_completa': 'PISTOLA BERETTA SSSSS cal. 1111', 'catalogo': 'N/D', 'categoria_ordine': 99}]}, {'nome': 'USO SPORTIVO', 'count': 1, 'armi': [{'id': 8, 'tipo': 'PISTOLA', 'marca': 'BERETTA', 'modello': 'N/D', 'matricola': 'SDASDSDSA', 'calibro': 'N/D', 'note': '', 'categoria': 'USO SPORTIVO', 'lung_canna': 'SADD', 'num_canne': '1', 'funzionamento': 'SEMIAUTOMATICO', 'caricamento': 'AVANCARICA', 'lunga_corta': 'ARMA LUNGA', 'tipologia': 'N/D', 'descrizione_completa': 'PISTOLA BERETTA N/D', 'catalogo': 'N/D', 'categoria_ordine': 99}]}], 'data_documento': '24/05/2025', 'num_armi': 3, 'num_categorie': 3, 'sesso': 'M', 'user': 'carlo', 'timestamp': '2025-05-24 17:40:30'}
+2025-05-24 17:40:30,920 - GeneraDenuncia - DEBUG - Numero di armi nel contesto: 3
+2025-05-24 17:40:30,920 - GeneraDenuncia - DEBUG - Numero di categorie nel contesto: 3
+2025-05-24 17:40:35,511 - GeneraDenuncia - INFO - Documento salvato in: C:/Users/carlo/Desktop/Denuncia_Armi_MANCINI_CARLO_24_05_2025.docx
+2025-05-24 17:40:36,302 - GeneraDenuncia - INFO - Apertura documento...
