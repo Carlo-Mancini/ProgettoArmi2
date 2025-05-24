@@ -20,11 +20,17 @@ from Utility import get_comuni, get_province
 
 # Dialog per visualizzare la lista dei Detentori
 class DetentoriListDialog(QDialog):
-    def __init__(self):
+    def __init__(self, comuni_list, province_list):  # <-- Aggiungi argomenti
         super().__init__()
         self.setWindowTitle("Lista Detentori")
         self.setMinimumWidth(400)
         self.detentori = []
+
+        # --- MODIFICA: Memorizza le liste ---
+        self.comuni_list = comuni_list
+        self.province_list = province_list
+        # ------------------------------------
+
         self.initUI()
         self.load_detentori_from_db()
         self.refreshList()
@@ -83,7 +89,12 @@ class DetentoriListDialog(QDialog):
 
     def newDetentore(self):
         try:
-            dialog = InserisciDetentoreDialog()
+            # --- MODIFICA: Passa le liste ---
+            dialog = InserisciDetentoreDialog(
+                comuni=self.comuni_list,
+                province=self.province_list
+            )
+            # --------------------------------
             if dialog.exec_() == QDialog.Accepted:
                 self.load_detentori_from_db()
                 self.refreshList()
@@ -94,7 +105,13 @@ class DetentoriListDialog(QDialog):
         selected = self.getSelectedDetentore()
         if selected:
             try:
-                dialog = InserisciDetentoreDialog(detentore_data=selected)
+                # --- MODIFICA: Passa le liste ---
+                dialog = InserisciDetentoreDialog(
+                    detentore_data=selected,
+                    comuni=self.comuni_list,
+                    province=self.province_list
+                )
+                # --------------------------------
                 if dialog.exec_() == QDialog.Accepted:
                     self.load_detentori_from_db()
                     self.refreshList()
@@ -127,7 +144,13 @@ class DetentoriListDialog(QDialog):
         index = self.listWidget.row(item)
         det = self.detentori[index]
         try:
-            dialog = InserisciDetentoreDialog(detentore_data=det)
+            # --- MODIFICA: Passa le liste ---
+            dialog = InserisciDetentoreDialog(
+                detentore_data=det,
+                comuni=self.comuni_list,
+                province=self.province_list
+            )
+            # --------------------------------
             if dialog.exec_() == QDialog.Accepted:
                 self.load_detentori_from_db()
                 self.refreshList()
@@ -137,8 +160,12 @@ class DetentoriListDialog(QDialog):
 
 # Finestra principale
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, comuni_list, province_list): # <-- Aggiungi argomenti
         super().__init__()
+        # --- MODIFICA: Memorizza le liste ---
+        self.comuni_list = comuni_list
+        self.province_list = province_list
+        # ------------------------------------
         self.setWindowTitle("Gestione Armi - Programma Principale")
         self.resize(600, 400)
         self.setup_ui()
@@ -181,8 +208,10 @@ class MainWindow(QMainWindow):
 
     def open_detentori(self):
         try:
-            from DetentoriListDialog import DetentoriListDialog
-            dialog = DetentoriListDialog(self)
+            # --- MODIFICA: Passa le liste ---
+            # Se DetentoriListDialog è qui, altrimenti devi trovarlo
+            dialog = DetentoriListDialog(self.comuni_list, self.province_list)
+            # --------------------------------
             dialog.exec_()
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore durante l'apertura della gestione detentori:\n{e}")
@@ -204,13 +233,17 @@ if __name__ == "__main__":
         app = QApplication(sys.argv)
         app.setStyle(QStyleFactory.create("Fusion"))
 
-        # Carica in anticipo i dati statici dalla cache
+        # --- MODIFICA: Carica i dati QUI ---
+        print("Caricamento dati statici...")
         comuni = get_comuni()
         province = get_province()
         print("Caricati", len(comuni), "comuni e", len(province), "province.")
+        # -----------------------------------
 
         print("Creazione della finestra principale...")
-        window = MainWindow()
+        # --- MODIFICA: Passa le liste a MainWindow ---
+        window = MainWindow(comuni, province)
+        # -------------------------------------------
         print("Visualizzazione della finestra principale...")
         window.show()
 

@@ -18,10 +18,17 @@ from Utility import get_sigla_provincia, DateInputWidget
 from PyQt5.QtGui import QIcon, QTextDocument
 from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog #
 from Utility import UpperCaseLineEdit
+from GeneraDenuncia import crea_documento_denuncia
 class InserisciDetentoreDialog(QDialog):
-    def __init__(self, detentore_data=None):
+    def __init__(self, detentore_data=None, comuni=None, province=None):  # <-- CORREZIONE: Aggiunti comuni e province
         super().__init__()
         self.detentore_data = detentore_data  # se presente, significa che è un update
+
+        # Ora queste righe funzionano perché 'comuni' e 'province' sono nella firma
+        self.comuni_list = comuni if comuni is not None else get_comuni()
+        self.province_list = province if province is not None else get_province()
+        self.armi_caricate = False  # Flag per il lazy loading
+
         self.setWindowTitle("Detentore")
         self.setMinimumWidth(850)
         self.setMinimumHeight(600)
@@ -56,8 +63,7 @@ class InserisciDetentoreDialog(QDialog):
         # Popolazione dei campi se sono forniti dati
         if detentore_data:
             self.populate_fields(detentore_data)
-            self.carica_armi()
-
+            # Ricorda: self.carica_armi() è stato rimosso per il lazy loading
 
     def create_dati_tab(self):
         """Crea la tab con i dati personali e di contatto del detentore"""
@@ -83,18 +89,26 @@ class InserisciDetentoreDialog(QDialog):
         """Crea i widget per i dati personali"""
         self.nomeEdit = UpperCaseLineEdit()
         self.cognomeEdit = UpperCaseLineEdit()
-
-        # Sostituisci QLineEdit con DateInputWidget per la data di nascita
         self.dataNascitaEdit = DateInputWidget()
         self.dataNascitaEdit.setDisplayFormat("dd/MM/yyyy")
 
-        # Combo per il luogo di nascita
-        self.luogoNascitaCombo = FilterableComboBox()
-        comuni = get_comuni()
-        self.luogoNascitaCombo.setItems(comuni)
+        # --- INIZIO MODIFICA: Luogo Nascita ---
+        self.luogoNascitaCombo = QComboBox()  # Usa QComboBox standard
+        self.luogoNascitaCombo.setEditable(True)
+        self.luogoNascitaCombo.setInsertPolicy(QComboBox.NoInsert)  # Impedisce di aggiungere nuovi item
+        self.luogoNascitaCombo.setPlaceholderText("Digita per cercare il comune...")
+
+        # NON chiamare addItems() o setItems()!
+
+        completer_nascita = QCompleter(self.comuni_list, self)
+        completer_nascita.setCaseSensitivity(Qt.CaseInsensitive)
+        completer_nascita.setFilterMode(Qt.MatchContains)  # Cerca ovunque, non solo all'inizio
+        completer_nascita.setCompletionMode(QCompleter.PopupCompletion)
+        self.luogoNascitaCombo.setCompleter(completer_nascita)
+
         self.luogoNascitaCombo.setCurrentIndex(-1)
         self.luogoNascitaCombo.clearEditText()
-
+        # --- FINE MODIFICA ---
 
         self.siglaProvinciaNascitaEdit = UpperCaseLineEdit()
         self.siglaProvinciaNascitaEdit.setMaximumWidth(60)
@@ -106,16 +120,21 @@ class InserisciDetentoreDialog(QDialog):
 
     def create_contact_widgets(self):
         """Crea i widget per i contatti"""
-        self.comuneResidenzaCombo = FilterableComboBox()
-        from Utility import get_comuni
-        comuni = get_comuni()
-        self.comuneResidenzaCombo.setItems(comuni)
+        # --- INIZIO MODIFICA: Comune Residenza ---
+        self.comuneResidenzaCombo = QComboBox()  # Usa QComboBox standard
+        self.comuneResidenzaCombo.setEditable(True)
+        self.comuneResidenzaCombo.setInsertPolicy(QComboBox.NoInsert)
+        self.comuneResidenzaCombo.setPlaceholderText("Digita per cercare il comune...")
+
+        completer_residenza = QCompleter(self.comuni_list, self)
+        completer_residenza.setCaseSensitivity(Qt.CaseInsensitive)
+        completer_residenza.setFilterMode(Qt.MatchContains)
+        completer_residenza.setCompletionMode(QCompleter.PopupCompletion)
+        self.comuneResidenzaCombo.setCompleter(completer_residenza)
+
         self.comuneResidenzaCombo.setCurrentIndex(-1)
         self.comuneResidenzaCombo.clearEditText()
-
-        completer_residenza = QCompleter(comuni)
-        completer_residenza.setCaseSensitivity(Qt.CaseInsensitive)
-        self.comuneResidenzaCombo.setCompleter(completer_residenza)
+        # --- FINE MODIFICA ---
 
         self.siglaProvinciaResidenzaEdit = UpperCaseLineEdit()
         self.siglaProvinciaResidenzaEdit.setMaximumWidth(60)
@@ -218,41 +237,44 @@ class InserisciDetentoreDialog(QDialog):
         # Fascicolo e titolo
         self.fascicoloPersonaleEdit = UpperCaseLineEdit()
         self.tipologiaTitoloEdit = UpperCaseLineEdit()
-
-        # Ente rilascio
         self.enteRilascioEdit = UpperCaseLineEdit()
 
-        # Combobox province per ente rilascio
+        # --- INIZIO MODIFICA: Provincia Ente Rilascio ---
         self.provinciaEnteRilascioCombo = QComboBox()
         self.provinciaEnteRilascioCombo.setEditable(True)
-        province = get_province()
-        self.provinciaEnteRilascioCombo.addItems(province)
-        self.provinciaEnteRilascioCombo.setCurrentIndex(-1)
-        self.provinciaEnteRilascioCombo.clearEditText()
-        completer_provincia = QCompleter(province)
+        self.provinciaEnteRilascioCombo.setInsertPolicy(QComboBox.NoInsert)
+        self.provinciaEnteRilascioCombo.setPlaceholderText("Digita per cercare la provincia...")
+
+        completer_provincia = QCompleter(self.province_list, self)  # Usa province_list
         completer_provincia.setCaseSensitivity(Qt.CaseInsensitive)
+        completer_provincia.setFilterMode(Qt.MatchContains)
+        completer_provincia.setCompletionMode(QCompleter.PopupCompletion)
         self.provinciaEnteRilascioCombo.setCompleter(completer_provincia)
 
-        # Sostituzione per la data di rilascio
+        self.provinciaEnteRilascioCombo.setCurrentIndex(-1)
+        self.provinciaEnteRilascioCombo.clearEditText()
+        # --- FINE MODIFICA ---
+
         self.dataRilascioEdit = DateInputWidget()
         self.dataRilascioEdit.setDisplayFormat("dd/MM/yyyy")
-
         self.numeroPortoArmiEdit = UpperCaseLineEdit()
-
-        # Luogo detenzione
         self.tipoLuogoDetenzioneEdit = UpperCaseLineEdit()
 
-        # Converto comuneDetenzioneEdit da QLineEdit a QComboBox
+        # --- INIZIO MODIFICA: Comune Detenzione ---
         self.comuneDetenzioneCombo = QComboBox()
         self.comuneDetenzioneCombo.setEditable(True)
-        comuni = get_comuni()
-        self.comuneDetenzioneCombo.addItems(comuni)
+        self.comuneDetenzioneCombo.setInsertPolicy(QComboBox.NoInsert)
+        self.comuneDetenzioneCombo.setPlaceholderText("Digita per cercare il comune...")
+
+        completer_detenzione = QCompleter(self.comuni_list, self)
+        completer_detenzione.setCaseSensitivity(Qt.CaseInsensitive)
+        completer_detenzione.setFilterMode(Qt.MatchContains)
+        completer_detenzione.setCompletionMode(QCompleter.PopupCompletion)
+        self.comuneDetenzioneCombo.setCompleter(completer_detenzione)
+
         self.comuneDetenzioneCombo.setCurrentIndex(-1)
         self.comuneDetenzioneCombo.clearEditText()
-
-        completer_detenzione = QCompleter(comuni)
-        completer_detenzione.setCaseSensitivity(Qt.CaseInsensitive)
-        self.comuneDetenzioneCombo.setCompleter(completer_detenzione)
+        # --- FINE MODIFICA ---
 
         self.siglaProvinciaDetenzioneEdit = UpperCaseLineEdit()
         self.siglaProvinciaDetenzioneEdit.setMaximumWidth(60)
@@ -261,27 +283,27 @@ class InserisciDetentoreDialog(QDialog):
         self.viaDetenzioneEdit = UpperCaseLineEdit()
         self.civicoDetenzioneEdit = UpperCaseLineEdit()
         self.civicoDetenzioneEdit.setMaximumWidth(80)
-
-        # Documento identità
         self.tipoDocumentoEdit = UpperCaseLineEdit()
         self.numeroDocumentoEdit = UpperCaseLineEdit()
-
-        # Sostituzione per la data di rilascio documento
         self.dataRilascioDocumentoEdit = DateInputWidget()
         self.dataRilascioDocumentoEdit.setDisplayFormat("dd/MM/yyyy")
-
         self.enteRilascioDocumentoEdit = UpperCaseLineEdit()
 
-        # Converto comuneEnteRilascioDocumentoEdit da QLineEdit a QComboBox
+        # --- INIZIO MODIFICA: Comune Ente Rilascio Documento ---
         self.comuneEnteRilascioDocumentoCombo = QComboBox()
         self.comuneEnteRilascioDocumentoCombo.setEditable(True)
-        self.comuneEnteRilascioDocumentoCombo.addItems(comuni)
+        self.comuneEnteRilascioDocumentoCombo.setInsertPolicy(QComboBox.NoInsert)
+        self.comuneEnteRilascioDocumentoCombo.setPlaceholderText("Digita per cercare il comune...")
+
+        completer_ente_rilascio = QCompleter(self.comuni_list, self)
+        completer_ente_rilascio.setCaseSensitivity(Qt.CaseInsensitive)
+        completer_ente_rilascio.setFilterMode(Qt.MatchContains)
+        completer_ente_rilascio.setCompletionMode(QCompleter.PopupCompletion)
+        self.comuneEnteRilascioDocumentoCombo.setCompleter(completer_ente_rilascio)
+
         self.comuneEnteRilascioDocumentoCombo.setCurrentIndex(-1)
         self.comuneEnteRilascioDocumentoCombo.clearEditText()
-
-        completer_ente_rilascio = QCompleter(comuni)
-        completer_ente_rilascio.setCaseSensitivity(Qt.CaseInsensitive)
-        self.comuneEnteRilascioDocumentoCombo.setCompleter(completer_ente_rilascio)
+        # --- FINE MODIFICA ---
 
     def create_license_group(self):
         """Crea il gruppo per licenza e fascicolo"""
@@ -444,6 +466,21 @@ class InserisciDetentoreDialog(QDialog):
 
         # Double click su tabella
         self.armiTable.cellDoubleClicked.connect(self.modifica_arma)
+
+        # --- MODIFICA: Aggiungi collegamento cambio tab per Lazy Loading ---
+        self.tab_widget.currentChanged.connect(self.tab_changed)
+        # -----------------------------------------------------------------
+    def tab_changed(self, index):
+        """
+        Chiamato quando la tab attiva cambia.
+        Carica le armi solo quando la tab "Armi" (indice 2) viene selezionata
+        per la prima volta e c'è un detentore.
+        """
+        # L'indice 2 corrisponde alla tab "Armi"
+        if index == 2 and not self.armi_caricate and self.detentore_data and self.detentore_data.get('id'):
+            print("Tab Armi selezionata, carico le armi...") # Messaggio di debug
+            self.carica_armi()
+            self.armi_caricate = True # Imposta il flag per non ricaricare
 
     def populate_fields(self, data):
         """Popola i campi con i dati esistenti"""
@@ -709,6 +746,8 @@ class InserisciDetentoreDialog(QDialog):
 
     def carica_armi(self):
         """Carica le armi del detentore nella tabella"""
+        self.armi_caricate = True
+
         if not self.detentore_data or not self.detentore_data.get('id'):
             self.armiTable.setRowCount(0)
             print("DEBUG - carica_armi: Nessun detentore selezionato")
@@ -965,170 +1004,18 @@ class InserisciDetentoreDialog(QDialog):
             QMessageBox.critical(self, "Errore", f"Impossibile calcolare il codice fiscale:\n{e}")
 
     def stampa_denuncia_armi(self):
-        """Genera e salva una denuncia di detenzione armi usando DocxTemplate"""
+        """
+        Chiama la funzione esterna per generare e salvare la denuncia.
+        """
         if not self.detentore_data or not self.detentore_data.get('id'):
             QMessageBox.warning(self, "Attenzione", "Nessun detentore selezionato.")
             return
 
-        try:
-            # Connessione al database
-            with sqlite3.connect("gestione_armi.db") as conn:
-                cursor = conn.cursor()
-                detentore_id = self.detentore_data.get('id')
+        detentore_id = self.detentore_data.get('id')
 
-                # Recupera i dati del detentore
-                cursor.execute("""
-                    SELECT Cognome, Nome, CodiceFiscale, DataNascita, LuogoNascita, SiglaProvinciaNascita,
-                          ComuneResidenza, SiglaProvinciaResidenza, TipoVia, Via, Civico, Telefono,
-                          NumeroPortoArmi, DataRilascio, EnteRilascio
-                    FROM detentori 
-                    WHERE ID_Detentore = ?
-                """, (detentore_id,))
-                detentore = cursor.fetchone()
+        # Chiama la funzione esterna, passando l'ID e 'self' come parent_widget
+        crea_documento_denuncia(detentore_id, self)
 
-                if not detentore:
-                    QMessageBox.warning(self, "Attenzione", "Detentore non trovato nel database.")
-                    return
-
-                # Recupera le armi raggruppate per categoria con tutti i dettagli aggiuntivi
-                cursor.execute("""
-                    SELECT CategoriaArma, TipoArma, MarcaArma, ModelloArma, Matricola, CalibroArma, 
-                           CaricamentoArma, ArmaLungaCorta, DataAcquisto, NoteArma,
-                           TipoCedente, CognomeCedente, NomeCedente, 
-                           TipoCanna, MatricolaCanna, LunghezzaCanna, NumeroCanne,
-                           TipoMunizioni, QuantitaMunizioni, TipoBossolo
-                    FROM armi 
-                    WHERE ID_Detentore = ?
-                    ORDER BY CategoriaArma, TipoArma, MarcaArma, ModelloArma
-                """, (detentore_id,))
-                armi = cursor.fetchall()
-
-                if not armi:
-                    QMessageBox.warning(self, "Attenzione", "Nessuna arma trovata per questo detentore.")
-                    return
-
-                # Raggruppa le armi per categoria
-                armi_by_categoria = {}
-                for arma in armi:
-                    categoria = arma[0] or "NON SPECIFICATA"
-                    if categoria not in armi_by_categoria:
-                        armi_by_categoria[categoria] = []
-                    armi_by_categoria[categoria].append(arma)
-
-                # Prepara i dati per il template
-                armi_formattate = []
-                contatore = 1
-
-                for categoria, armi_in_categoria in armi_by_categoria.items():
-                    for arma in armi_in_categoria:
-                        armi_formattate.append({
-                            'numero': contatore,
-                            'categoria': categoria,
-                            'tipo': arma[1] or "N/D",
-                            'marca': arma[2] or "N/D",
-                            'modello': arma[3] or "N/D",
-                            'matricola': arma[4] or "N/D",
-                            'calibro': arma[5] or "N/D",
-                            'caricamento': arma[6] or "N/D",
-                            'tipo_arma': arma[7] or "N/D",
-                            'data_acquisto': arma[8] or "N/D",
-                            'note': arma[9] or "",
-                            'tipo_cedente': arma[10] or "N/D",
-                            'cognome_cedente': arma[11] or "N/D",
-                            'nome_cedente': arma[12] or "N/D",
-                            'tipo_canna': arma[13] or "N/D",
-                            'matricola_canna': arma[14] or "N/D",
-                            'lunghezza_canna': arma[15] or "N/D",
-                            'numero_canne': arma[16] or "N/D",
-                            'tipo_munizioni': arma[17] or "N/D",
-                            'quantita_munizioni': arma[18] or "N/D",
-                            'tipo_bossolo': arma[19] or "N/D"
-                        })
-                        contatore += 1
-
-                # Ottieni data per il documento
-                data_corrente = datetime.now().strftime('%d/%m/%Y')
-                ora_corrente = datetime.now().strftime('%H:%M')
-
-                # Prepara il contesto per il template
-                context = {
-                    'data_documento': data_corrente,
-                    'ora_documento': ora_corrente,
-                    'cognome': detentore[0],
-                    'nome': detentore[1],
-                    'codice_fiscale': detentore[2],
-                    'data_nascita': detentore[3],
-                    'luogo_nascita': detentore[4],
-                    'provincia_nascita': detentore[5],
-                    'comune_residenza': detentore[6],
-                    'provincia_residenza': detentore[7],
-                    'tipo_via': detentore[8],
-                    'via': detentore[9],
-                    'civico': detentore[10],
-                    'telefono': detentore[11] or "N/D",
-                    'numero_porto_armi': detentore[12] or "N/D",
-                    'data_rilascio': detentore[13] or "N/D",
-                    'ente_rilascio': detentore[14] or "N/D",
-                    'armi': armi_formattate,
-                    'totale_armi': len(armi),
-                    'categorie': [{'nome': cat, 'conteggio': len(armi_cat)} for cat, armi_cat in
-                                  armi_by_categoria.items()]
-                }
-
-                # Definisci il percorso del template SENZA usare __file__
-                current_dir = os.getcwd()  # Otteniamo la directory corrente
-                template_path = os.path.join(current_dir, "templates", "denuncia_armi_template.docx")
-
-                # Verifica se il template esiste
-                if not os.path.exists(template_path):
-                    # Prova a cercare il template in una sottodirectory dell'eseguibile
-                    base_dir = os.path.dirname(sys.executable) if hasattr(sys, 'frozen') else current_dir
-                    template_path = os.path.join(base_dir, "templates", "denuncia_armi_template.docx")
-
-                    if not os.path.exists(template_path):
-                        QMessageBox.critical(self, "Errore",
-                                             f"Template non trovato in:\n{template_path}\n\nCreare una cartella 'templates' con il file template.")
-                        return
-
-                # Carica il template
-                doc = DocxTemplate(template_path)
-
-                # Rendering del documento
-                doc.render(context)
-
-                # Richiedi all'utente dove salvare il file
-                nome_file_default = f"Denuncia_Armi_{detentore[0]}_{detentore[1]}_{data_corrente.replace('/', '_')}.docx"
-                file_path, _ = QFileDialog.getSaveFileName(
-                    self,
-                    "Salva documento",
-                    nome_file_default,
-                    "Documenti Word (*.docx)"
-                )
-
-                if file_path:
-                    doc.save(file_path)
-                    QMessageBox.information(self, "Documento generato",
-                                            f"Il documento è stato salvato con successo in:\n{file_path}")
-
-                    # Chiedi all'utente se vuole aprire il documento
-                    reply = QMessageBox.question(self, "Aprire documento?",
-                                                 "Vuoi aprire il documento generato?",
-                                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-                    if reply == QMessageBox.Yes:
-                        # Apri il documento con l'applicazione predefinita
-                        if os.name == 'nt':  # Windows
-                            os.startfile(file_path)
-                        elif os.name == 'posix':  # macOS o Linux
-                            import subprocess
-                            subprocess.call(
-                                ('open', file_path) if sys.platform == 'darwin' else ('xdg-open', file_path))
-
-        except Exception as e:
-            QMessageBox.critical(self, "Errore",
-                                 f"Si è verificato un errore durante la preparazione del documento: {str(e)}")
-            print(f"Errore nella generazione del documento: {e}")
-            import traceback
-            traceback.print_exc()
 class UpperCaseLineEdit(QLineEdit):
     def __init__(self, *args, **kwargs):
         super(UpperCaseLineEdit, self).__init__(*args, **kwargs)
